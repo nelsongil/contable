@@ -2,6 +2,7 @@
 
 Documentación técnica para IAs/LLMs que trabajen con este proyecto.
 Actualizado: 2026-03-02 (v1.2)
+**IMPORTANTE: Todos los archivos DEBEN guardarse en UTF-8 sin BOM (Nunca UTF-16).**
 
 ---
 

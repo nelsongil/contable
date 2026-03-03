@@ -54,6 +54,19 @@ function checkForUpdates() {
     }
 
     $body = trim($response);
+    
+    // Limpieza de posibles caracteres nulos (Hotfix por archivos guardados en UTF-16)
+    $body = str_replace("\0", '', $body);
+    $body = preg_replace('/\x00/', '', $body);
+    
+    // Si detectamos UTF-16 (común tras ediciones erróneas), intentamos convertir a UTF-8
+    if (function_exists('mb_detect_encoding')) {
+        $enc = mb_detect_encoding($body, ['UTF-8', 'UTF-16', 'ISO-8859-1'], true);
+        if ($enc === 'UTF-16') {
+            $body = mb_convert_encoding($body, 'UTF-8', 'UTF-16');
+        }
+    }
+
     if (empty($body)) {
         $_SESSION['update_error'] = "Respuesta vacía de GitHub";
         return;

@@ -1,4 +1,5 @@
 # Convenciones de Código — Libro Contable
+**CRÍTICO: Todos los archivos DEBEN guardarse en UTF-8 sin BOM.**
 
 Documento de convenciones de código para guiar el desarrollo del proyecto.
 
