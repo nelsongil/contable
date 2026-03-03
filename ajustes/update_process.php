@@ -68,6 +68,15 @@ switch ($step) {
             if (!file_exists($zipFile) || filesize($zipFile) < 1000) {
                 throw new Exception("El archivo descargado no es válido o está incompleto.");
             }
+
+            // Verificar cabecera PK (ZIP)
+            $f = fopen($zipFile, 'rb');
+            $header = fread($f, 2);
+            fclose($f);
+            if ($header !== 'PK') {
+                throw new Exception("El archivo descargado no es un ZIP válido (cabecera incorrecta).");
+            }
+
             echo json_encode(['ok' => true]);
         } catch (Exception $e) {
             echo json_encode(['ok' => false, 'error' => 'Fallo en descarga: ' . $e->getMessage()]);
@@ -79,16 +88,19 @@ switch ($step) {
             $zipFile = $tmpDir . '/update.zip';
             $extractPath = $tmpDir . '/extracted';
             
+            if (!file_exists($zipFile)) throw new Exception("Archivo ZIP no encontrado.");
+
             if (is_dir($extractPath)) rrmdir_recursive($extractPath);
             @mkdir($extractPath, 0755, true);
 
             $zip = new ZipArchive;
-            if ($zip->open($zipFile) === TRUE) {
+            $res = $zip->open($zipFile);
+            if ($res === TRUE) {
                 $zip->extractTo($extractPath);
                 $zip->close();
                 echo json_encode(['ok' => true]);
             } else {
-                throw new Exception("No se pudo abrir el archivo ZIP descargado.");
+                throw new Exception("No se pudo abrir el archivo ZIP (Error code: $res).");
             }
         } catch (Exception $e) {
             echo json_encode(['ok' => false, 'error' => 'Fallo en preparación: ' . $e->getMessage()]);

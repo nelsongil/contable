@@ -39,6 +39,7 @@ $currentVer = defined('APP_VERSION') ? APP_VERSION : '1.0';
         </div>
 
         <?php if ($update): ?>
+          <!-- Versión disponible -->
           <div class="alert alert-success border-success bg-success-subtle d-flex gap-3">
             <i class="bi bi-stars h4 mb-0"></i>
             <div>
@@ -51,27 +52,44 @@ $currentVer = defined('APP_VERSION') ? APP_VERSION : '1.0';
           <div class="bg-light p-3 border rounded mb-4" style="max-height: 250px; overflow-y: auto; font-size: .88rem; line-height: 1.6;">
             <?= nl2br(e($update['notes'])) ?>
           </div>
+        <?php elseif (isset($_SESSION['update_error'])): ?>
+          <!-- Error detectado -->
+          <div class="alert alert-danger border-danger bg-danger-subtle p-4">
+            <div class="d-flex gap-3 align-items-center mb-3">
+                <i class="bi bi-exclamation-octagon h2 mb-0"></i>
+                <div>
+                    <h5 class="fw-bold mb-0">No se pudo contactar con GitHub</h5>
+                    <p class="small mb-0 text-muted">Hubo un problema al verificar actualizaciones.</p>
+                </div>
+            </div>
+            
+            <p class="small mb-3">
+                <?php 
+                    $err = $_SESSION['update_error'];
+                    if (str_contains($err, '403')) echo "<strong>GitHub requiere autenticación:</strong> El repositorio podría ser privado o has superado el límite de peticiones de tu IP.";
+                    elseif (str_contains($err, 'vacía') || str_contains($err, 'conexión')) echo "<strong>Fallo de red:</strong> No hay respuesta del servidor. Verifica tu conexión a internet.";
+                    else echo "Se ha producido un error inesperado al procesar la respuesta.";
+                ?>
+            </p>
 
-          <h6 class="fw-bold mb-3">Pasos de la actualización:</h6>
-          <div class="update-steps small shadow-sm border rounded">
-            <div class="p-2 border-bottom d-flex align-items-center gap-3">
-                <span class="badge rounded-circle bg-success-subtle text-success p-2"><i class="bi bi-database-down"></i></span>
-                <span>Copia de seguridad automática de la base de datos</span>
+            <button class="btn btn-sm btn-outline-danger mb-3" type="button" data-bs-toggle="collapse" data-bs-target="#debugError">
+                <i class="bi bi-bug me-1"></i> Ver detalles técnicos
+            </button>
+            <div class="collapse" id="debugError">
+                <div class="p-3 bg-white border rounded small text-monospace" style="font-family: monospace; font-size: .75rem;">
+                    <?= e($_SESSION['update_error']) ?>
+                </div>
             </div>
-            <div class="p-2 border-bottom d-flex align-items-center gap-3">
-                <span class="badge rounded-circle bg-success-subtle text-success p-2"><i class="bi bi-cloud-download"></i></span>
-                <span>Descarga de archivos desde GitHub</span>
-            </div>
-            <div class="p-2 border-bottom d-flex align-items-center gap-3">
-                <span class="badge rounded-circle bg-success-subtle text-success p-2"><i class="bi bi-shield-check"></i></span>
-                <span>Verificación de integridad e hilos de seguridad</span>
-            </div>
-            <div class="p-2 d-flex align-items-center gap-3">
-                <span class="badge rounded-circle bg-success-subtle text-success p-2"><i class="bi bi-hdd-network"></i></span>
-                <span>Aplicación de cambios y migraciones SQL</span>
+
+            <div class="mt-3 pt-3 border-top">
+                <a href="updater.php?force_check=1" class="btn btn-danger btn-sm px-4">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Reintentar ahora
+                </a>
+                <a href="debug_github.php" target="_blank" class="btn btn-link btn-sm text-danger opacity-75">Ejecutar diagnóstico</a>
             </div>
           </div>
         <?php else: ?>
+          <!-- Sistema al día -->
           <div class="text-center py-5">
             <div class="bg-success-subtle text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px;">
                 <i class="bi bi-check-lg" style="font-size: 3rem;"></i>

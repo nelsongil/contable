@@ -26,24 +26,46 @@ function checkForUpdates() {
 
     // Preparar cURL
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Libro-Contable-Updater/1.0');
-    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true); // Importante para seguridad
+    curl_setopt_array($ch, [
+        CURLOPT_URL            => $url,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_USERAGENT      => 'contable-app/1.2', // GitHub requiere User-Agent
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_SSL_VERIFYPEER => true
+    ]);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr  = curl_error($ch);
     curl_close($ch);
 
-    // Si la API falla, ignoramos silenciosamente
-    if ($httpCode !== 200 || !$response) {
-        setConfig('last_update_check', time()); // Evitar reintentos inmediatos si falla la red
+    // Guardar timestamp de última comprobación siempre (para no saturar si hay errores)
+    setConfig('last_update_check', time());
+
+    if ($curlErr) {
+        $_SESSION['update_error'] = "Error de conexión cURL: $curlErr";
         return;
     }
 
-    $data = json_decode($response, true);
-    if (!$data || !isset($data['tag_name'])) {
+    if ($httpCode !== 200) {
+        $_SESSION['update_error'] = "GitHub API devolvió HTTP $httpCode" . ($httpCode === 403 ? " (Posible límite de tasa o repo privado)" : "");
+        return;
+    }
+
+    $body = trim($response);
+    if (empty($body)) {
+        $_SESSION['update_error'] = "Respuesta vacía de GitHub";
+        return;
+    }
+
+    $data = json_decode($body, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        $_SESSION['update_error'] = "Respuesta inválida de GitHub: " . json_last_error_msg() . " — Snippet: " . substr($body, 0, 50);
+        return;
+    }
+
+    if (!isset($data['tag_name'])) {
         return;
     }
 
@@ -54,16 +76,15 @@ function checkForUpdates() {
     if (version_compare($latestVer, $currentVer, '>')) {
         $_SESSION['update_available'] = [
             'version' => $latestTag,
-            'url'     => $data['zipball_url'], // ZIP automático de GitHub
+            'url'     => $data['zipball_url'],
             'notes'   => $data['body'],
             'at'      => time()
         ];
+        unset($_SESSION['update_error']);
     } else {
         unset($_SESSION['update_available']);
+        unset($_SESSION['update_error']);
     }
-
-    // Actualizar timestamp de última comprobación
-    setConfig('last_update_check', time());
 }
 
 /**
