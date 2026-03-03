@@ -1,4 +1,8 @@
+usuario DB: nelsongi_contable_user
+usuario App: admin
+contraseña DB - app: Mec@gun01-
 # 📒 Libro Contable — Aplicación PHP
+**v1.0** (Baseline)
 
 ## Requisitos
 - PHP 8.0+
@@ -91,15 +95,4 @@ WebEmpresa permite generarlo desde su panel de control.
 ---
 
 ## Changelog
-
-### v1.1 — 2026-03-02
-- **Fix:** `session_start()` añadido en `facturas/ver.php` (faltaba para que `flash()` funcionara antes del modo PDF)
-- **Fix:** `session_start()` añadido en `libros/exportar.php` (descarga CSV evitaba pasar por `header.php`)
-- **Fix:** Enlace roto `/libros/compras.php` corregido a `/compras/` en `libros/exportar.php`
-- **Fix:** `$pageTitle` movido antes de `require_once header.php` en `clientes/nuevo.php` y `clientes/editar.php` (el título HTML mostraba "Contabilidad" en lugar del título de la página)
-- **Fix:** Atributo `style` malformado en `compras/index.php` — clases CSS Bootstrap separadas del atributo `style`
-- **Fix:** `install.php` — filtrado SQL mejorado para ignorar todas las sentencias `SET` al ejecutar `install.sql`
-- **Docs:** Creado `AGENTS.md` con documentación técnica completa para IAs
-
-### v1.0 — 2026-02-XX
-- Primera versión funcional con instalador, login, facturas, compras, clientes, proveedores y libros contables
+Ver historial completo de cambios en [CHANGELOG.md](CHANGELOG.md)

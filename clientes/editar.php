@@ -1,7 +1,9 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+
 $id = (int)($_GET['id'] ?? 0);
-$pageTitle = $id ? 'Editar cliente' : 'Nuevo cliente';
-require_once __DIR__ . '/../includes/header.php';
 $c  = $id ? getCliente($id) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -24,6 +26,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/clientes/');
     }
 }
+
+$pageTitle = $id ? 'Editar cliente' : 'Nuevo cliente';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="topbar">

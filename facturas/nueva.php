@@ -1,6 +1,7 @@
 <?php
-$pageTitle = 'Nueva factura';
-require_once __DIR__ . '/../includes/header.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $id      = (int)get('id');
 $factura = $id ? getFacturaEmitida($id) : null;
@@ -8,7 +9,6 @@ $lineas  = $id ? getLineasFactura($id) : [];
 $clientes = getClientes();
 
 $isEdit  = (bool)$id;
-$pageTitle = $isEdit ? 'Editar factura ' . ($factura['numero'] ?? '') : 'Nueva factura';
 
 // ── Procesar formulario ───────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -48,50 +48,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$lineasValidas) {
         $error = 'Añade al menos una línea de factura.';
     } else {
-        if ($isEdit) {
-            $db->prepare("UPDATE facturas_emitidas SET fecha=?,fecha_vencimiento=?,cliente_id=?,
-                          cliente_nombre=?,cliente_nif=?,base_imponible=?,porcentaje_iva=?,cuota_iva=?,
-                          porcentaje_irpf=?,cuota_irpf=?,total=?,liquido=?,notas=?,estado=?,trimestre=?
-                          WHERE id=?")
-               ->execute([$fecha, $vencimiento ?: null, $clienteId ?: null,
-                          $cliente['nombre'] ?? post('cliente_nombre'),
-                          $cliente['nif'] ?? '',
-                          $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf,
-                          $total, $liquido, $notas, $estado, $trim, $id]);
-            $db->prepare("DELETE FROM facturas_emitidas_lineas WHERE factura_id=?")->execute([$id]);
-            $fid = $id;
-        } else {
-            $numero = siguienteNumeroFactura();
-            $db->prepare("INSERT INTO facturas_emitidas
-                          (numero,fecha,fecha_vencimiento,cliente_id,cliente_nombre,cliente_nif,
-                           base_imponible,porcentaje_iva,cuota_iva,porcentaje_irpf,cuota_irpf,
-                           total,liquido,notas,estado,trimestre)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-               ->execute([$numero, $fecha, $vencimiento ?: null, $clienteId ?: null,
-                          $cliente['nombre'] ?? post('cliente_nombre'),
-                          $cliente['nif'] ?? '',
-                          $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf,
-                          $total, $liquido, $notas, $estado, $trim]);
-            $fid = (int)$db->lastInsertId();
+        try {
+            if ($isEdit) {
+                $db->prepare("UPDATE facturas_emitidas SET fecha=?,fecha_vencimiento=?,cliente_id=?,
+                              cliente_nombre=?,cliente_nif=?,base_imponible=?,porcentaje_iva=?,cuota_iva=?,
+                              porcentaje_irpf=?,cuota_irpf=?,total=?,liquido=?,notas=?,estado=?,trimestre=?
+                              WHERE id=?")
+                   ->execute([$fecha, $vencimiento ?: null, $clienteId ?: null,
+                              $cliente['nombre'] ?? post('cliente_nombre'),
+                              $cliente['nif'] ?? '',
+                              $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf,
+                              $total, $liquido, $notas, $estado, $trim, $id]);
+                $db->prepare("DELETE FROM facturas_emitidas_lineas WHERE factura_id=?")->execute([$id]);
+                $fid = $id;
+            } else {
+                $numero = siguienteNumeroFactura();
+                $db->prepare("INSERT INTO facturas_emitidas
+                              (numero,fecha,fecha_vencimiento,cliente_id,cliente_nombre,cliente_nif,
+                               base_imponible,porcentaje_iva,cuota_iva,porcentaje_irpf,cuota_irpf,
+                               total,liquido,notas,estado,trimestre)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                   ->execute([$numero, $fecha, $vencimiento ?: null, $clienteId ?: null,
+                              $cliente['nombre'] ?? post('cliente_nombre'),
+                              $cliente['nif'] ?? '',
+                              $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf,
+                              $total, $liquido, $notas, $estado, $trim]);
+                $fid = (int)$db->lastInsertId();
+            }
+            foreach ($lineasValidas as [$ord, $cant, $desc, $precio, $ltotal]) {
+                $db->prepare("INSERT INTO facturas_emitidas_lineas (factura_id,orden,cantidad,descripcion,precio,total)
+                              VALUES (?,?,?,?,?,?)")
+                   ->execute([$fid, $ord, $cant, $desc, $precio, $ltotal]);
+            }
+            flash($isEdit ? 'Factura actualizada.' : "Factura creada correctamente.");
+            redirect('/facturas/ver.php?id=' . $fid);
+        } catch (PDOException $e) {
+            if ($e->getCode() == 23000) {
+                $error = "Error: El número de factura ya existe.";
+            } else {
+                $error = "Error al guardar: " . $e->getMessage();
+            }
         }
-        foreach ($lineasValidas as [$ord, $cant, $desc, $precio, $ltotal]) {
-            $db->prepare("INSERT INTO facturas_emitidas_lineas (factura_id,orden,cantidad,descripcion,precio,total)
-                          VALUES (?,?,?,?,?,?)")
-               ->execute([$fid, $ord, $cant, $desc, $precio, $ltotal]);
-        }
-        flash($isEdit ? 'Factura actualizada.' : "Factura creada correctamente.");
-        redirect('/facturas/ver.php?id=' . $fid);
     }
 }
 
-$defaultNum = $isEdit ? ($factura['numero'] ?? '') : '';
+$pageTitle = $isEdit ? 'Editar factura ' . ($factura['numero'] ?? '') : 'Nueva factura';
+require_once __DIR__ . '/../includes/header.php';
+
 $defaultFecha = $isEdit ? ($factura['fecha'] ?? date('Y-m-d')) : date('Y-m-d');
 $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', strtotime('+30 days'));
 ?>
 
 <div class="topbar">
   <h1><i class="bi bi-receipt me-2"></i><?= $pageTitle ?></h1>
-  <a href="/facturas/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Volver</a>
+  <a href="<?= $isEdit ? '/facturas/ver.php?id=' . $id : '/facturas/' ?>" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left me-1"></i>Volver
+  </a>
 </div>
 
 <?php if (!empty($error)): ?>
@@ -147,26 +159,36 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
       <div class="card-body">
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label">Fecha</label>
-            <input type="date" name="fecha" class="form-control" value="<?= e($defaultFecha) ?>" required>
+            <div class="form-floating">
+              <input type="date" name="fecha" id="fecha" class="form-control" value="<?= e($defaultFecha) ?>" placeholder="Fecha" required>
+              <label for="fecha">Fecha</label>
+            </div>
           </div>
           <div class="col-12">
-            <label class="form-label">Vencimiento</label>
-            <input type="date" name="fecha_vencimiento" class="form-control" value="<?= e($defaultVenc) ?>">
+            <div class="form-floating">
+              <input type="date" name="fecha_vencimiento" id="fecha_vencimiento" class="form-control" value="<?= e($defaultVenc) ?>" placeholder="Vencimiento">
+              <label for="fecha_vencimiento">Vencimiento</label>
+            </div>
           </div>
           <div class="col-6">
             <label class="form-label">IVA %</label>
             <select name="pct_iva" class="form-select" id="pctIva">
-              <?php foreach ([21, 10, 4, 0] as $t): ?>
-              <option value="<?= $t ?>" <?= ($factura['porcentaje_iva'] ?? 21) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
+              <?php 
+                $defIva = (int)getConfig('empresa_iva_def', 21);
+                foreach ([21, 10, 4, 0] as $t): 
+              ?>
+              <option value="<?= $t ?>" <?= ($factura['porcentaje_iva'] ?? $defIva) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="col-6">
             <label class="form-label">Ret. IRPF %</label>
             <select name="pct_irpf" class="form-select" id="pctIrpf">
-              <?php foreach ([0, 7, 15, 19] as $t): ?>
-              <option value="<?= $t ?>" <?= ($factura['porcentaje_irpf'] ?? 0) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
+              <?php 
+                $defIrpf = (int)getConfig('empresa_irpf_def', 15);
+                foreach ([0, 7, 15, 19] as $t): 
+              ?>
+              <option value="<?= $t ?>" <?= ($factura['porcentaje_irpf'] ?? $defIrpf) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -252,8 +274,10 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
   </div>
 
   <div class="col-12 pb-4">
-    <button type="submit" class="btn btn-gold px-5">
-      <i class="bi bi-check-lg me-1"></i><?= $isEdit ? 'Guardar cambios' : 'Crear factura' ?>
+    <button type="submit" class="btn btn-gold px-5" id="btnSubmit">
+      <span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span>
+      <i class="bi bi-check-lg me-1" id="submitIcon"></i>
+      <span id="submitText"><?= $isEdit ? 'Guardar cambios' : 'Crear factura' ?></span>
     </button>
     <a href="/facturas/" class="btn btn-outline-secondary ms-2">Cancelar</a>
   </div>
@@ -337,6 +361,19 @@ document.getElementById('lineasBody').addEventListener('click', function(e) {
 });
 
 recalc();
+
+// ── Spinner en submit ────────────────────────────────
+document.getElementById('formFactura').addEventListener('submit', function() {
+    const btn = document.getElementById('btnSubmit');
+    const spinner = document.getElementById('submitSpinner');
+    const icon = document.getElementById('submitIcon');
+    const text = document.getElementById('submitText');
+    
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    icon.classList.add('d-none');
+    text.textContent = 'Guardando...';
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

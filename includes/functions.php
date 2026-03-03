@@ -1,6 +1,59 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 
+// ─── Configuración ──────────────────────────────────────────
+function getConfig(string $key, $default = null) {
+    static $cache = [];
+    if (isset($cache[$key])) return $cache[$key];
+
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT valor FROM configuracion WHERE clave = ?");
+        $stmt->execute([$key]);
+        $row = $stmt->fetch();
+        
+        $value = $row ? $row['valor'] : $default;
+        
+        // Conversión manual de tipos básicos
+        if ($value === 'true' || $value === '1' || $value === true)  $value = true;
+        elseif ($value === 'false' || $value === '0' || $value === false) $value = false;
+        
+        $cache[$key] = $value;
+        return $value;
+    } catch (Exception $e) {
+        return $default;
+    }
+}
+
+function setConfig(string $key, $value): bool {
+    if (is_bool($value)) $value = $value ? 'true' : 'false';
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("INSERT INTO configuracion (clave, valor) VALUES (?, ?) 
+                              ON DUPLICATE KEY UPDATE valor = VALUES(valor)");
+        return $stmt->execute([$key, $value]);
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function getThemeCSS(): string {
+    $colors = [
+        '--verde'    => getConfig('theme_color_primary', '#1A2E2A'),
+        '--verde-m'  => getConfig('theme_color_medium',  '#2D5245'),
+        '--verde-a'  => getConfig('theme_color_accent',  '#3E7B64'),
+        '--gold'     => getConfig('theme_color_gold',    '#C9A84C'),
+        '--bg'       => getConfig('theme_color_bg',      '#F4F7F5'),
+    ];
+    
+    $css = "\n<style>\n:root {\n";
+    foreach ($colors as $var => $val) {
+        $css .= "  $var: $val !important;\n";
+    }
+    $css .= "}\n</style>\n";
+    return $css;
+}
+
 // ─── Seguridad básica ────────────────────────────────────────
 function e(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
@@ -28,12 +81,20 @@ function trimestre(string $fecha): int {
 
 // ─── Siguiente número de factura ─────────────────────────────
 function siguienteNumeroFactura(): string {
-    $db   = getDB();
-    $anio = date('Y');
-    $db->exec("INSERT IGNORE INTO numeracion (anio, ultimo) VALUES ($anio, 0)");
-    $db->exec("UPDATE numeracion SET ultimo = ultimo + 1 WHERE anio = $anio");
-    $row  = $db->query("SELECT ultimo FROM numeracion WHERE anio = $anio")->fetch();
-    return sprintf('F%d%04d', $anio, $row['ultimo']);
+    $pref    = getConfig('factura_prefijo', 'F');
+    $usaAnio = getConfig('factura_usa_anio', true);
+    $digitos = (int)getConfig('factura_digitos', 5);
+    $proximo = (int)getConfig('factura_proximo', 1);
+
+    $anio = $usaAnio ? date('Y') : '';
+    $numeroStr = str_pad($proximo, $digitos, '0', STR_PAD_LEFT);
+    
+    $final = $pref . $anio . $numeroStr;
+
+    // Incrementar el próximo número para la siguiente vez
+    setConfig('factura_proximo', $proximo + 1);
+
+    return $final;
 }
 
 // ─── CRUD helpers ────────────────────────────────────────────

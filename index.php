@@ -15,58 +15,122 @@ $co = $db->prepare("SELECT COALESCE(SUM(base_imponible),0) base, COALESCE(SUM(cu
                     FROM facturas_recibidas WHERE YEAR(fecha)=?");
 $co->execute([$anio]); $compras = $co->fetch();
 
-$ivaAnual    = $ventas['iva'] - $compras['iva'];
+// ─── Datos para el Gráfico Mensual ───
+$mensualVentas = array_fill(1, 12, 0);
+$mensualCompras = array_fill(1, 12, 0);
+
+$mv = $db->prepare("SELECT MONTH(fecha) m, SUM(base_imponible) base FROM facturas_emitidas WHERE YEAR(fecha)=? AND estado!='cancelada' GROUP BY MONTH(fecha)");
+$mv->execute([$anio]);
+while($r = $mv->fetch()) $mensualVentas[(int)$r['m']] = (float)$r['base'];
+
+$mc = $db->prepare("SELECT MONTH(fecha) m, SUM(base_imponible) base FROM facturas_recibidas WHERE YEAR(fecha)=? GROUP BY MONTH(fecha)");
+$mc->execute([$anio]);
+while($r = $mc->fetch()) $mensualCompras[(int)$r['m']] = (float)$r['base'];
+
+// KPIs anuales (reutilizando lógica existente pero con mejores nombres)
+$ivaAnual = $ventas['iva'] - $compras['iva'];
 $rendimiento = $ventas['base'] - $compras['base'];
-$irpfEstimado = max(0, $rendimiento * EMPRESA_IRPF);
+$irpfPct = (float)getConfig('empresa_irpf', 15) / 100;
+$irpfEstimado = max(0, $rendimiento * $irpfPct);
 
-// Últimas facturas
-$ultimas = $db->prepare("SELECT fe.numero, fe.fecha, fe.total, fe.estado, fe.cliente_nombre
-                         FROM facturas_emitidas fe WHERE YEAR(fe.fecha)=? ORDER BY fe.fecha DESC, fe.id DESC LIMIT 6");
-$ultimas->execute([$anio]); $ultimas = $ultimas->fetchAll();
-
-// Resumen trimestral
 $trims = [];
 for ($t = 1; $t <= 4; $t++) $trims[$t] = resumenTrimestral($anio, $t);
 ?>
 
-<div class="topbar">
-  <h1><i class="bi bi-speedometer2 me-2"></i>Dashboard <?= $anio ?></h1>
-  <div class="d-flex gap-2">
-    <span class="badge bg-secondary">T<?= $trimActual ?> activo</span>
-    <a href="facturas/nueva.php" class="btn btn-gold btn-sm"><i class="bi bi-plus-lg me-1"></i>Nueva factura</a>
+<div class="topbar fade-in-up">
+  <div>
+    <h1 class="d-flex align-items-center"><i class="bi bi-speedometer2 me-2"></i>Dashboard <?= $anio ?></h1>
+    <p class="text-muted mb-0" style="font-size: 0.8rem;">Bienvenido de nuevo, <?= e($_SESSION['usuario_nombre'] ?? 'Usuario') ?></p>
   </div>
+  <div class="d-flex gap-2">
+    <div class="dropdown">
+        <button class="btn btn-gold btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <i class="bi bi-plus-lg me-1"></i>Nuevo ingreso/gasto
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+            <li><a class="dropdown-item" href="facturas/nueva.php"><i class="bi bi-receipt me-2"></i>Nueva Factura Emitida</a></li>
+            <li><a class="dropdown-item" href="compras/nueva.php"><i class="bi bi-bag me-2"></i>Nueva Factura Recibida</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="clientes/nuevo.php"><i class="bi bi-person-plus me-2"></i>Nuevo Cliente</a></li>
+            <li><a class="dropdown-item" href="proveedores/nuevo.php"><i class="bi bi-truck me-2"></i>Nuevo Proveedor</a></li>
+        </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row g-3 mb-4 fade-in-up delay-1">
+    <div class="col-6 col-md-3">
+        <a href="facturas/nueva.php" class="card text-decoration-none h-100 text-center p-3 border-0 shadow-sm" style="transition: transform 0.2s;">
+            <div class="mb-2"><i class="bi bi-file-earmark-plus text-primary fs-2"></i></div>
+            <div class="fw-bold text-dark small">Nueva Factura</div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="compras/nueva.php" class="card text-decoration-none h-100 text-center p-3 border-0 shadow-sm" style="transition: transform 0.2s;">
+            <div class="mb-2"><i class="bi bi-cart-plus text-success fs-2"></i></div>
+            <div class="fw-bold text-dark small">Subir Compra</div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="libros/resumen.php" class="card text-decoration-none h-100 text-center p-3 border-0 shadow-sm" style="transition: transform 0.2s;">
+            <div class="mb-2"><i class="bi bi-file-earmark-bar-graph text-warning fs-2"></i></div>
+            <div class="fw-bold text-dark small">Ver Impuestos</div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="libros/" class="card text-decoration-none h-100 text-center p-3 border-0 shadow-sm" style="transition: transform 0.2s;">
+            <div class="mb-2"><i class="bi bi-journal-check text-info fs-2"></i></div>
+            <div class="fw-bold text-dark small">Libros Contables</div>
+        </a>
+    </div>
 </div>
 
 <!-- KPIs -->
 <div class="row g-3 mb-4">
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi">
+  <div class="col-sm-6 col-xl-3 fade-in-up delay-1">
+    <div class="kpi h-100 border-start border-primary border-4">
       <div class="label">Ingresos <?= $anio ?></div>
       <div class="value"><?= money($ventas['base']) ?></div>
       <div class="sub"><?= $ventas['cnt'] ?> facturas emitidas</div>
     </div>
   </div>
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi">
+  <div class="col-sm-6 col-xl-3 fade-in-up delay-2">
+    <div class="kpi h-100 border-start border-success border-4">
       <div class="label">Gastos <?= $anio ?></div>
       <div class="value"><?= money($compras['base']) ?></div>
       <div class="sub"><?= $compras['cnt'] ?> facturas recibidas</div>
     </div>
   </div>
-  <div class="col-sm-6 col-xl-3 <?= $ivaAnual >= 0 ? '' : 'kpi-gold' ?>">
-    <div class="kpi">
-      <div class="label">IVA resultante acumulado</div>
+  <div class="col-sm-6 col-xl-3 fade-in-up delay-3">
+    <div class="kpi h-100 border-start border-<?= $ivaAnual >= 0 ? 'warning' : 'info' ?> border-4">
+      <div class="label">IVA acumulado</div>
       <div class="value"><?= money($ivaAnual) ?></div>
-      <div class="sub"><?= $ivaAnual >= 0 ? 'A ingresar' : 'A compensar' ?></div>
+      <div class="sub"><?= $ivaAnual >= 0 ? '💰 A ingresar' : '📉 A compensar' ?></div>
     </div>
   </div>
-  <div class="col-sm-6 col-xl-3">
-    <div class="kpi">
+  <div class="col-sm-6 col-xl-3 fade-in-up delay-4">
+    <div class="kpi h-100 border-start border-gold border-4">
       <div class="label">Rendimiento neto</div>
       <div class="value <?= $rendimiento < 0 ? 'text-danger' : '' ?>"><?= money($rendimiento) ?></div>
       <div class="sub">IRPF estimado: <?= money($irpfEstimado) ?></div>
     </div>
   </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <!-- Gráfico Mensual -->
+    <div class="col-lg-12">
+        <div class="card fade-in-up delay-2 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-graph-up-arrow me-2"></i>Evolución mensual <?= $anio ?></span>
+                <span class="badge bg-light text-dark">Ventas vs Compras</span>
+            </div>
+            <div class="card-body">
+                <canvas id="chartMensual" style="max-height: 250px;"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-3">
@@ -146,5 +210,42 @@ for ($t = 1; $t <= 4; $t++) $trims[$t] = resumenTrimestral($anio, $t);
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const ctx = document.getElementById('chartMensual').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'],
+            datasets: [
+                {
+                    label: 'Ventas (Base)',
+                    data: <?= json_encode(array_values($mensualVentas)) ?>,
+                    backgroundColor: '#3E7B64',
+                    borderRadius: 5,
+                },
+                {
+                    label: 'Compras (Base)',
+                    data: <?= json_encode(array_values($mensualCompras)) ?>,
+                    backgroundColor: '#C9A84C',
+                    borderRadius: 5,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, grid: { display: false } },
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

@@ -1,16 +1,29 @@
 <?php
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/updater.php';
+
+// Comprobar actualizaciones
+checkForUpdates();
+
+// Manejar descarte de notificación
+if (isset($_GET['dismiss_update'])) {
+    dismissUpdateNotification();
+    redirect($_SERVER['PHP_SELF']);
+}
+
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= $pageTitle ?? 'Contabilidad' ?> — <?= EMPRESA_SOCIEDAD ?></title>
+<meta name="description" content="Libro Contable — <?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?>">
+<meta name="theme-color" content="#1A2E2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231A2E2A'/%3E%3Cpath d='M9 7h14v18H9z' fill='%23C9A84C'/%3E%3Cpath d='M9 10h14M9 14h14M9 18h14M9 22h14' stroke='%231A2E2A' stroke-width='1.5'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -113,24 +126,109 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1a1a1a; 
 .lineas-table tr:hover .btn-remove { opacity: 1; }
 .btn-remove { opacity: .3; transition: opacity .2s; }
 
-/* ── Alerts ── */
-.alert-success { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
-.alert-danger  { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+/* ── Animations ── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.5s ease both; }
+.delay-1 { animation-delay: 0.1s; }
+.delay-2 { animation-delay: 0.2s; }
+.delay-3 { animation-delay: 0.3s; }
+.delay-4 { animation-delay: 0.4s; }
+
+/* ── Floating Labels ── */
+.form-floating > .form-control:focus ~ label,
+.form-floating > .form-control:not(:placeholder-shown) ~ label {
+  color: var(--verde-a);
+}
+
+/* ── Table UX ── */
+.table tbody tr { transition: background 0.2s; cursor: pointer; }
+.table .actions { opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
+.table tr:hover .actions { opacity: 1; }
+.sortable { cursor: pointer; position: relative; }
+.sortable:after { content: '↕'; position: absolute; right: 8px; opacity: 0.3; font-size: 0.8em; }
+
+/* ── Sidebar Updates ── */
+.sidebar .nav-link { position: relative; }
+.sidebar-bottom .logout-btn {
+  width: 100%; text-align: left; background: rgba(255,255,255,0.05); color: #aac7bd;
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 0.6rem;
+  font-size: 0.85rem; transition: all 0.2s;
+}
+.sidebar-bottom .logout-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
+/* ── Status Banner ── */
+#session-warning {
+  position: fixed; top: 0; left: var(--sidebar); right: 0; z-index: 1050;
+  background: #fff3cd; border-bottom: 1px solid #ffeeba; color: #856404;
+  padding: 0.75rem 1.25rem; display: none; align-items: center; justify-content: space-between;
+}
 </style>
+<?php
+// ─── Contador de Notificaciones (Borradores) ───
+$cntBorradores = (int)getDB()->query("SELECT COUNT(*) FROM facturas_emitidas WHERE estado='borrador'")->fetchColumn();
+?>
+<?= getThemeCSS() ?>
 </head>
 <body>
+
+<?php 
+// Banner de actualización
+$update = $_SESSION['update_available'] ?? null;
+$dismissed = $_SESSION['update_dismissed_version'] ?? '';
+
+if ($update && $update['version'] !== $dismissed): 
+?>
+<div class="alert alert-info border-0 rounded-0 m-0 d-flex align-items-center justify-content-between py-2 px-4" style="background: var(--verde-a); color: #fff; font-size: .88rem; z-index: 1100; position: relative;">
+    <div>
+        <i class="bi bi-arrow-repeat me-2"></i> 
+        <strong>Nueva versión <?= e($update['version']) ?> disponible</strong> 
+        <span class="opacity-75 ms-1">— Mejora la seguridad y funciones de tu Libro Contable.</span>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <a href="#" class="text-white text-decoration-underline" data-bs-toggle="modal" data-bs-target="#modalChangelog" style="font-weight: 500;">Ver novedades</a>
+        <a href="/ajustes/updater.php" class="btn btn-sm btn-gold py-0 px-3" style="font-size: .75rem;">Actualizar ahora</a>
+        <a href="?dismiss_update=1" class="text-white opacity-50 hover-opacity-100"><i class="bi bi-x-lg"></i></a>
+    </div>
+</div>
+
+<!-- Modal Changelog -->
+<div class="modal fade" id="modalChangelog" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Novedades <?= e($update['version']) ?></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" style="font-size: .9rem; max-height: 400px; overflow-y: auto;">
+        <?= nl2br(e($update['notes'])) ?>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        <a href="/ajustes/updater.php" class="btn btn-primary">Ir a actualizar</a>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <div class="company"><?= EMPRESA_SOCIEDAD ?></div>
-    <div class="person"><?= EMPRESA_NOMBRE ?></div>
-    <div class="cif">CIF: <?= EMPRESA_CIF ?></div>
+    <div class="company"><?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></div>
+    <div class="person"><?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?></div>
+    <div class="cif">CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?></div>
   </div>
 
   <div class="nav-section">Facturación</div>
-  <a href="/facturas/" class="nav-link <?= $currentPage==='index' && str_contains($_SERVER['REQUEST_URI'],'/facturas') ? 'active' : '' ?>">
-    <i class="bi bi-receipt"></i> Facturas emitidas
+  <a href="/facturas/" class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/facturas/') !== false ? 'active' : '' ?>">
+    <i class="bi bi-receipt"></i>
+    <span>Facturas emitidas</span>
+    <?php if ($cntBorradores > 0): ?>
+    <span class="position-absolute translate-middle p-1 bg-danger border border-light rounded-circle" style="top: 15px; left: 25px;" title="<?= $cntBorradores ?> borradores pendientes" data-bs-toggle="tooltip"></span>
+    <?php endif; ?>
   </a>
   <a href="/facturas/nueva.php" class="nav-link <?= $currentPage==='nueva' ? 'active' : '' ?>">
     <i class="bi bi-plus-circle"></i> Nueva factura
@@ -159,21 +257,52 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1a1a1a; 
   <a href="/libros/resumen.php" class="nav-link">
     <i class="bi bi-bar-chart"></i> Resumen fiscal
   </a>
-  <a href="/libros/exportar.php" class="nav-link">
-    <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+
+  <div class="nav-section">Configuración</div>
+  <a href="/ajustes/empresa.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>">
+    <i class="bi bi-building"></i> Empresa y nº
+  </a>
+  <a href="/ajustes/plantilla.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/plantilla') ? 'active' : '' ?>">
+    <i class="bi bi-palette"></i> Plantilla factura
+  </a>
+  <a href="/ajustes/tema.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/tema') ? 'active' : '' ?>">
+    <i class="bi bi-brush"></i> Tema interfaz
+  </a>
+  <a href="/ajustes/updater.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/updater') ? 'active' : '' ?>">
+    <i class="bi bi-arrow-repeat"></i> Actualizaciones
+    <?php if ($update && $update['version'] !== $dismissed): ?>
+    <span class="badge rounded-pill bg-gold text-dark ms-auto" style="font-size: .65rem;">1</span>
+    <?php endif; ?>
   </a>
 
   <div class="sidebar-bottom">
-    <div class="d-flex align-items-center justify-content-between mb-2">
-      <small class="text-muted" style="font-size:.7rem">Año fiscal</small>
-      <span class="anio-badge"><?= date('Y') ?></span>
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="d-flex flex-column">
+        <small class="text-muted" style="font-size:0.65rem; text-transform: uppercase;">Año Fiscal</small>
+        <span class="anio-badge" style="width: fit-content;"><?= date('Y') ?></span>
+      </div>
+      <div class="text-end">
+        <small style="color:#6a9488;font-size:0.72rem;display:block;">👤 <?= htmlspecialchars($_SESSION['usuario_user'] ?? '') ?></small>
+      </div>
     </div>
-    <div class="d-flex align-items-center justify-content-between">
-      <small style="color:#6a9488;font-size:.72rem">👤 <?= htmlspecialchars($_SESSION['usuario_user'] ?? '') ?></small>
-      <a href="?logout=1" style="font-size:.72rem;color:#6a9488;text-decoration:none" title="Cerrar sesión">⎋ Salir</a>
-    </div>
+    
+    <button class="logout-btn d-flex align-items-center justify-content-center gap-2" 
+            id="logoutBtn"
+            data-bs-toggle="popover" 
+            data-bs-placement="top"
+            data-bs-html="true"
+            data-bs-title="¿Cerrar sesión?"
+            data-bs-content="<div class='d-flex gap-2'><button class='btn btn-sm btn-outline-secondary w-100' onclick='closeLogoutPopover()'>No</button><a href='?logout=1' class='btn btn-sm btn-danger w-100'>Sí, salir</a></div>">
+      <i class="bi bi-box-arrow-right"></i>
+      <span>Cerrar sesión</span>
+    </button>
   </div>
 </aside>
+
+<div id="session-warning">
+    <span><i class="bi bi-exclamation-triangle-fill me-2"></i>Tu sesión expirará en <strong id="session-timer">5:00</strong> minutos.</span>
+    <button class="btn btn-sm btn-warning" onclick="resetInactivity()">Mantener sesión</button>
+</div>
 
 <!-- ═══ MAIN ═══ -->
 <main class="main">

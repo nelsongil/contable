@@ -155,10 +155,40 @@ El cálculo se hace en PHP al guardar Y en JavaScript en tiempo real en el formu
 - **Redirects:** Siempre usar `redirect()` (que hace `exit`) en lugar de `header()` directo.
 - **Mensajes de éxito/error:** Usar `flash()` + `redirect()` tras formularios POST (PRG pattern).
 - **$pageTitle:** Debe asignarse *antes* de `require_once header.php` para que aparezca en `<title>`.
-
----
-
-## Instalador (`install.php`)
+ 
+ ---
+ 
+ ## Reglas de trabajo para IAs
+ 
+ ### Antes de tocar cualquier archivo:
+ 1. Leer `CONVENTIONS.md` para respetar el estilo del proyecto.
+ 2. Leer `SECURITY.md` para no introducir vulnerabilidades.
+ 3. Si modificas la base de datos, leer `DATABASE.md` y crear una migración SQL si el esquema cambia.
+ 
+ ### Al crear archivos nuevos PHP con formulario:
+ - **SIEMPRE:** `session_start()` → `require functions.php` → procesar `POST` → `redirect` si éxito → **LUEGO** incluir `header.php` → HTML.
+ - **NUNCA** incluir `header.php` antes de haber procesado completamente el `POST`.
+ 
+ ### Al añadir funcionalidades:
+ - Reutilizar funciones existentes en `functions.php`.
+ - Si una funcionalidad se repite en más de dos sitios, debe moverse a una función en `functions.php`.
+ - No duplicar lógica de cálculo de impuestos (IVA/IRPF) que ya está centralizada.
+ 
+ ### Al corregir bugs:
+ - No cambiar nombres de variables o funciones sin actualizar TODAS las referencias en el proyecto.
+ - No alterar la estructura de tablas sin crear una migración documentada.
+ - Actualizar `CHANGELOG.md` con cada corrección o mejora.
+ 
+ ### Lo que NUNCA debes hacer:
+ - Subir credenciales o el archivo `config/database.php` al repositorio.
+ - Hacer `echo` de variables externas (`$_GET`, `$_POST`) sin usar la función `e()`.
+ - Alterar el flujo de autenticación centralizado en `auth.php`.
+ - Cambiar el formato de numeración de facturas sin planificar la migración de las existentes.
+ - Hardcodear colores CSS fuera de las variables `:root`.
+ 
+ ---
+ 
+ ## Instalador (`install.php`)
 
 Wizard de 4 pasos:
 1. **Bienvenida** — comprueba requisitos PHP

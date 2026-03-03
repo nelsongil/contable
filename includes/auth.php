@@ -15,6 +15,7 @@ if (empty($_SESSION['usuario_id'])) {
 // Logout
 if (isset($_GET['logout'])) {
     session_destroy();
-    header('Location: /login.php');
+    $reason = $_GET['reason'] ?? 'logout';
+    header('Location: /login.php?reason=' . urlencode($reason));
     exit;
 }

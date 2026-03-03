@@ -10,3 +10,8 @@ config/.installed
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Project folders
+backups/
+tmp/
+*.zip

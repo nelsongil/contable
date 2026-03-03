@@ -1,10 +1,9 @@
 <?php
-// Leer ID y pageTitle ANTES de header.php usando $_GET directamente
-// (functions.php todavía no está disponible aquí)
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+
 $id        = (int)($_GET['id'] ?? 0);
-$pageTitle = $id ? 'Editar proveedor' : 'Nuevo proveedor';
-require_once __DIR__ . '/../includes/header.php';
-// A partir de aquí functions.php está disponible
 
 // Pre-rellenar campos desde parámetros URL (ej: llegando desde importación PDF)
 $prefill = [
@@ -39,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/proveedores/');
     }
 }
+
+$pageTitle = $id ? 'Editar proveedor' : 'Nuevo proveedor';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="topbar">

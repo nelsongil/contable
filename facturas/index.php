@@ -16,9 +16,14 @@ foreach ($facturas as $f) {
 }
 ?>
 
-<div class="topbar">
+<div class="topbar fade-in-up">
   <h1><i class="bi bi-receipt me-2"></i>Facturas emitidas</h1>
-  <div class="d-flex gap-2 flex-wrap">
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    <!-- Buscador -->
+    <div class="position-relative">
+        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.8rem;"></i>
+        <input type="text" id="facturaSearch" class="form-control form-control-sm ps-4" placeholder="Buscar factura..." style="width: 180px;">
+    </div>
     <!-- Filtro año -->
     <select class="form-select form-select-sm" style="width:90px" onchange="location.href='?anio='+this.value+'&trim=<?= $trim ?>'">
       <?php foreach ([date('Y'), date('Y')-1, date('Y')-2] as $y): ?>
@@ -46,12 +51,18 @@ foreach ($facturas as $f) {
 <div class="card">
   <div class="card-header"><i class="bi bi-list me-2"></i><?= count($facturas) ?> facturas</div>
   <div class="card-body p-0">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover mb-0" id="facturasTable">
       <thead>
         <tr>
-          <th>Nº Factura</th><th>Fecha</th><th>T</th><th>Cliente</th>
-          <th class="text-end">Base</th><th class="text-end">IVA</th>
-          <th class="text-end">Total</th><th>Estado</th><th style="width:100px"></th>
+          <th class="sortable">Nº Factura</th>
+          <th class="sortable">Fecha</th>
+          <th class="sortable">T</th>
+          <th class="sortable">Cliente</th>
+          <th class="text-end sortable">Base</th>
+          <th class="text-end sortable">IVA</th>
+          <th class="text-end sortable">Total</th>
+          <th class="sortable">Estado</th>
+          <th style="width:100px"></th>
         </tr>
       </thead>
       <tbody>
@@ -69,8 +80,10 @@ foreach ($facturas as $f) {
             <span class="badge bg-<?= $bs[$f['estado']] ?? 'secondary' ?>"><?= e($f['estado']) ?></span>
           </td>
           <td>
-            <a href="ver.php?id=<?= $f['id'] ?>" class="btn btn-sm btn-outline-secondary me-1" title="Ver/PDF"><i class="bi bi-eye"></i></a>
-            <a href="nueva.php?id=<?= $f['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil"></i></a>
+            <div class="actions">
+              <a href="ver.php?id=<?= $f['id'] ?>" class="btn btn-sm btn-outline-secondary me-1" title="Ver/PDF"><i class="bi bi-eye"></i></a>
+              <a href="nueva.php?id=<?= $f['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil"></i></a>
+            </div>
           </td>
         </tr>
         <?php endforeach; ?>
@@ -92,5 +105,12 @@ foreach ($facturas as $f) {
     </table>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    filterTable('facturaSearch', 'facturasTable');
+    makeSortable(document.getElementById('facturasTable'));
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

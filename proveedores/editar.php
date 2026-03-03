@@ -1,8 +1,10 @@
 <?php
-require_once __DIR__ . '/../includes/header.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+
 $id = (int)get('id');
 $c  = $id ? getProveedor($id) : [];
-$pageTitle = $id ? 'Editar cliente' : 'Nuevo cliente';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [
@@ -13,17 +15,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     else {
         $db = getDB();
         if ($id) {
-            $db->prepare("UPDATE clientes SET nombre=?,nif=?,direccion=?,ciudad=?,cp=?,provincia=?,telefono=?,email=?,notas=? WHERE id=?")
+            $db->prepare("UPDATE proveedores SET nombre=?,nif=?,direccion=?,ciudad=?,cp=?,provincia=?,telefono=?,email=?,notas=? WHERE id=?")
                ->execute([...$data, $id]);
-            flash('Cliente actualizado.');
+            flash('Proveedor actualizado.');
         } else {
-            $db->prepare("INSERT INTO clientes (nombre,nif,direccion,ciudad,cp,provincia,telefono,email,notas) VALUES (?,?,?,?,?,?,?,?,?)")
+            // Error en el código original: insertaba en clientes en vez de proveedores?
+            // Mirando Step 112: "INSERT INTO clientes" - BUG DETECTADO! Lo corrijo.
+            $db->prepare("INSERT INTO proveedores (nombre,nif,direccion,ciudad,cp,provincia,telefono,email,notas) VALUES (?,?,?,?,?,?,?,?,?)")
                ->execute($data);
-            flash('Cliente creado correctamente.');
+            flash('Proveedor creado correctamente.');
         }
         redirect('/proveedores/');
     }
 }
+
+$pageTitle = $id ? 'Editar proveedor' : 'Nuevo proveedor';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="topbar">

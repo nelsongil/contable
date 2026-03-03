@@ -4,6 +4,40 @@ require_once __DIR__ . '/../includes/functions.php';
 
 $anio = (int)get('anio', date('Y'));
 
+// ── Copia de seguridad SQL ──────────────────────────────────
+if (get('backup') === '1') {
+    try {
+        $db = getDB();
+        $tables = [];
+        $res = $db->query("SHOW TABLES");
+        while ($r = $res->fetch(PDO::FETCH_NUM)) $tables[] = $r[0];
+
+        $out = "-- Backup Libro Contable — " . date('Y-m-d H:i:s') . "\n";
+        $out .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
+
+        foreach ($tables as $t) {
+            $create = $db->query("SHOW CREATE TABLE `$t`")->fetch(PDO::FETCH_NUM);
+            $out .= "DROP TABLE IF EXISTS `$t`;\n" . $create[1] . ";\n\n";
+            
+            $rows = $db->query("SELECT * FROM `$t`")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                $cols = implode("`, `", array_keys($row));
+                $vals = array_map(fn($v) => $v === null ? 'NULL' : $db->quote($v), array_values($row));
+                $out .= "INSERT INTO `$t` (`$cols`) VALUES (" . implode(", ", $vals) . ");\n";
+            }
+            $out .= "\n";
+        }
+        $out .= "SET FOREIGN_KEY_CHECKS=1;\n";
+
+        header('Content-Type: application/sql');
+        header('Content-Disposition: attachment; filename="backup_contable_' . date('Ymd_His') . '.sql"');
+        echo $out;
+        exit;
+    } catch (Exception $e) {
+        die("Error al generar backup: " . $e->getMessage());
+    }
+}
+
 // Si se pide descarga
 if (get('download') === '1') {
     // Necesita PhpSpreadsheet - si no está instalado, genera CSV

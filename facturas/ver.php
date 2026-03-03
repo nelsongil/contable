@@ -24,58 +24,70 @@ if ($pdf) {
 <head>
 <meta charset="UTF-8">
 <title>Factura <?= e($factura['numero']) ?></title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Inter', sans-serif; font-size: 10pt; color: #1a1a1a; background: #fff; }
+body { 
+    font-family: <?= getConfig('invoice_font', "'Inter', sans-serif") ?>; 
+    font-size: 10pt; 
+    color: <?= getConfig('invoice_color_text', '#1a1a1a') ?>; 
+    background: #fff; 
+}
 @page { margin: 15mm 18mm; size: A4; }
 @media print { .no-print { display: none !important; } }
 
-.invoice { max-width: 780px; margin: 0 auto; padding: 20px; }
+.invoice { max-width: 780px; margin: 60px auto; padding: 20px; position: relative; }
 
 /* Header */
-.inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 3px solid #1A2E2A; padding-bottom: 20px; }
-.inv-logo-area .company { font-size: 22pt; font-weight: 700; color: #1A2E2A; }
-.inv-logo-area .subtitle { color: #3E7B64; font-size: 9pt; }
-.inv-logo-area .details  { font-size: 8pt; color: #555; margin-top: 6px; line-height: 1.6; }
+.inv-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid <?= getConfig('invoice_color_gold', '#C9A84C') ?>; }
+.inv-logo-area .logo-img { max-height: 95px; max-width: 250px; display: block; }
 .inv-title-area { text-align: right; }
-.inv-title-area .factura-label { font-size: 26pt; font-weight: 700; color: #C9A84C; letter-spacing: -1px; }
-.inv-title-area .numero { font-size: 13pt; font-weight: 600; color: #1A2E2A; }
-.inv-title-area .fecha  { font-size: 9pt; color: #666; }
+.inv-title-area .factura-label { font-size: 28pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; line-height: 1; margin-bottom: 5px; }
+.inv-title-area .numero { font-size: 14pt; font-weight: 600; color: #444; }
+.inv-title-area .fecha  { font-size: 9.5pt; color: #666; margin-top: 4px; }
 
-/* Parties */
-.parties { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
-.party { background: #f8fbf9; border-left: 4px solid #1A2E2A; padding: 14px 16px; border-radius: 0 8px 8px 0; }
-.party.cliente { border-left-color: #C9A84C; }
-.party-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .08em; color: #888; margin-bottom: 5px; }
-.party-name  { font-size: 12pt; font-weight: 700; color: #1A2E2A; }
-.party-detail { font-size: 8.5pt; color: #555; margin-top: 2px; line-height: 1.5; }
+/* Section 2: Client */
+.client-block { margin-bottom: 40px; padding: 10px 0; }
+.client-label { font-size: 8pt; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.client-name  { font-size: 16pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; margin-bottom: 4px; }
+.client-details { font-size: 10pt; color: #444; line-height: 1.5; }
 
 /* Lines table */
-.lines-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-.lines-table thead tr { background: #1A2E2A; color: #fff; }
-.lines-table thead th { padding: 8px 10px; font-size: 8pt; font-weight: 600; text-transform: uppercase; }
-.lines-table tbody tr:nth-child(even) { background: #f3f8f5; }
-.lines-table tbody td { padding: 7px 10px; font-size: 9pt; border-bottom: 1px solid #e5ede9; }
-.lines-table tfoot td { padding: 6px 10px; font-size: 9pt; border-top: 2px solid #1A2E2A; }
+.lines-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+.lines-table thead tr { background: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; color: #fff; }
+.lines-table thead th { padding: 10px; font-size: 8.5pt; font-weight: 600; text-transform: uppercase; text-align: left; }
+.lines-table tbody tr:nth-child(even) { background: #f9f9f9; }
+.lines-table tbody td { padding: 12px 10px; font-size: 10pt; border-bottom: 1px solid #eee; }
+.lines-table .text-right { text-align: right; }
 
 /* Totals */
-.totals-wrap { display: flex; justify-content: flex-end; margin-bottom: 28px; }
-.totals { width: 280px; }
-.totals-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 9.5pt; border-bottom: 1px solid #e5ede9; }
-.totals-row.grand { font-size: 13pt; font-weight: 700; color: #1A2E2A; border-top: 2px solid #1A2E2A; border-bottom: none; padding-top: 8px; }
-.totals-row.irpf  { color: #c0392b; }
+.totals-wrap { display: flex; justify-content: flex-end; margin-bottom: 50px; }
+.totals { width: 300px; }
+.totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 10pt; border-bottom: 1px solid #efefef; }
+.totals-row.grand { font-size: 14pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; border-top: 2px solid <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; border-bottom: none; padding-top: 10px; margin-top: 5px; }
+.totals-row.irpf { color: #d32f2f; }
 
-/* Payment / Notes */
-.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.bottom-box { background: #f8fbf9; border-radius: 8px; padding: 14px 16px; }
-.bottom-box h4 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .07em; color: #888; margin-bottom: 8px; }
-.bottom-box p  { font-size: 9pt; line-height: 1.7; color: #444; }
+/* Footer Columns */
+.footer-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 30px; }
+.footer-col h4 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 12px; }
+.footer-col p { font-size: 9pt; line-height: 1.6; color: #444; }
 
-/* Print button */
-.no-print { position: fixed; top: 20px; right: 20px; display: flex; gap: 8px; }
+/* Sender specifics in footer */
+.sender-box { border: 1px solid <?= getConfig('invoice_color_accent', '#3E7B64') ?>; padding: 15px; border-radius: 8px; background: #fdfdfd; }
+.sender-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.sender-logo { max-height: 40px; }
+.sender-brand { font-size: 11pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; }
+
+/* Legal note */
+.legal-note { margin-top: 50px; font-size: 7pt; color: #aaa; line-height: 1.4; text-align: justify; }
+
+/* Utility */
+.mb-2 { margin-bottom: 0.5rem; }
+.mt-2 { margin-top: 0.5rem; }
+
+/* Print-only Volver */
+.no-print { position: fixed; top: 20px; right: 20px; display: flex; gap: 8px; z-index: 1000; }
 .btn-print { background: #1A2E2A; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: Inter; font-size: 13px; font-weight: 600; }
-.btn-print:hover { background: #2D5245; }
 .btn-back  { background: #fff; color: #1A2E2A; border: 2px solid #1A2E2A; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: Inter; font-size: 13px; font-weight: 600; text-decoration: none; }
 </style>
 </head>
@@ -87,21 +99,16 @@ body { font-family: 'Inter', sans-serif; font-size: 10pt; color: #1a1a1a; backgr
 </div>
 
 <div class="invoice">
-  <!-- Cabecera -->
+  <!-- SECCIÓN 1: CABECERA -->
   <div class="inv-header">
     <div class="inv-logo-area">
-      <div class="company"><?= EMPRESA_SOCIEDAD ?></div>
-      <div class="subtitle"><?= EMPRESA_NOMBRE ?></div>
-      <div class="details">
-        <?= EMPRESA_DIR1 ?><br>
-        <?= EMPRESA_DIR2 ?><br>
-        CIF: <?= EMPRESA_CIF ?> · <?= EMPRESA_TEL ?><br>
-        <?= EMPRESA_EMAIL ?> · <?= EMPRESA_WEB ?>
-      </div>
+      <?php if ($logo = getConfig('invoice_logo', '/assets/logo.png')): ?>
+      <img src="<?= $logo ?>?t=<?= time() ?>" class="logo-img" alt="Logo">
+      <?php endif; ?>
     </div>
     <div class="inv-title-area">
       <div class="factura-label">FACTURA</div>
-      <div class="numero"><?= e($factura['numero']) ?></div>
+      <div class="numero">Nº <?= e($factura['numero']) ?></div>
       <div class="fecha">Fecha: <?= date('d/m/Y', strtotime($factura['fecha'])) ?></div>
       <?php if ($factura['fecha_vencimiento']): ?>
       <div class="fecha">Vencimiento: <?= date('d/m/Y', strtotime($factura['fecha_vencimiento'])) ?></div>
@@ -109,82 +116,106 @@ body { font-family: 'Inter', sans-serif; font-size: 10pt; color: #1a1a1a; backgr
     </div>
   </div>
 
-  <!-- Partes -->
-  <div class="parties">
-    <div class="party">
-      <div class="party-label">Emisor</div>
-      <div class="party-name"><?= EMPRESA_NOMBRE ?></div>
-      <div class="party-detail"><?= EMPRESA_DIR1 ?><br><?= EMPRESA_DIR2 ?><br>CIF: <?= EMPRESA_CIF ?></div>
-    </div>
-    <div class="party cliente">
-      <div class="party-label">Cliente</div>
-      <div class="party-name"><?= e($factura['cliente_nombre']) ?></div>
-      <?php if ($factura['cliente_nif']): ?>
-      <div class="party-detail">NIF/CIF: <?= e($factura['cliente_nif']) ?></div>
-      <?php endif; ?>
+  <!-- SECCIÓN 2: DATOS CLIENTE -->
+  <div class="client-block">
+    <div class="client-label">Facturado a:</div>
+    <div class="client-name"><?= e($factura['cliente_nombre']) ?></div>
+    <div class="client-details">
+      <?php if ($factura['cliente_nif']): ?>NIF/CIF: <?= e($factura['cliente_nif']) ?><br><?php endif; ?>
       <?php
         $cli = $factura['cliente_id'] ? getCliente($factura['cliente_id']) : null;
         if ($cli && $cli['direccion']):
+          echo e($cli['direccion']) . "<br>";
+          echo e($cli['cp'] . ' ' . $cli['ciudad']);
+        endif;
       ?>
-      <div class="party-detail"><?= e($cli['direccion']) ?><br><?= e($cli['cp'] . ' ' . $cli['ciudad']) ?></div>
-      <?php endif; ?>
     </div>
   </div>
 
-  <!-- Líneas -->
+  <!-- SECCIÓN 3: TABLA DE LÍNEAS -->
   <table class="lines-table">
-    <thead><tr><th>Cant.</th><th>Descripción</th><th style="text-align:right">Precio unit.</th><th style="text-align:right">Total</th></tr></thead>
+    <thead>
+        <tr>
+            <th style="width: 80px">Cant.</th>
+            <th>Descripción</th>
+            <th class="text-right" style="width: 120px">Precio unit.</th>
+            <th class="text-right" style="width: 120px">Total</th>
+        </tr>
+    </thead>
     <tbody>
       <?php foreach ($lineas as $l): ?>
       <tr>
         <td><?= number_format($l['cantidad'], $l['cantidad'] == floor($l['cantidad']) ? 0 : 2, ',', '.') ?></td>
         <td><?= e($l['descripcion']) ?></td>
-        <td style="text-align:right"><?= money($l['precio']) ?></td>
-        <td style="text-align:right"><?= money($l['total']) ?></td>
+        <td class="text-right"><?= money($l['precio']) ?></td>
+        <td class="text-right"><?= money($l['total']) ?></td>
       </tr>
       <?php endforeach; ?>
     </tbody>
   </table>
 
-  <!-- Totales -->
+  <!-- SECCIÓN 4: TOTALES -->
   <div class="totals-wrap">
     <div class="totals">
       <div class="totals-row"><span>Base imponible</span><span><?= money($factura['base_imponible']) ?></span></div>
       <div class="totals-row"><span>IVA (<?= $factura['porcentaje_iva'] ?>%)</span><span><?= money($factura['cuota_iva']) ?></span></div>
       <?php if ($factura['porcentaje_irpf'] > 0): ?>
-      <div class="totals-row irpf"><span>Ret. IRPF (<?= $factura['porcentaje_irpf'] ?>%)</span><span>-<?= money($factura['cuota_irpf']) ?></span></div>
+      <div class="totals-row irpf"><span>Retención IRPF (<?= $factura['porcentaje_irpf'] ?>%)</span><span>-<?= money($factura['cuota_irpf']) ?></span></div>
       <?php endif; ?>
       <div class="totals-row grand"><span>TOTAL</span><span><?= money($factura['total']) ?></span></div>
       <?php if ($factura['porcentaje_irpf'] > 0): ?>
-      <div class="totals-row" style="font-size:8.5pt;color:#888"><span>Líquido a cobrar</span><span><?= money($factura['liquido']) ?></span></div>
+      <div class="totals-row" style="font-size:9pt;color:#888;border-top:1px dashed #eee;margin-top:5px;padding-top:8px">
+        <span>Líquido a percibir</span><span><?= money($factura['liquido']) ?></span>
+      </div>
       <?php endif; ?>
     </div>
   </div>
 
-  <!-- Pago y notas -->
-  <div class="bottom-grid">
-    <div class="bottom-box">
+  <!-- SECCIÓN 5: PIE (2 COLUMNAS) -->
+  <div class="footer-cols">
+    <!-- Columna izquierda: DATOS DE PAGO -->
+    <div class="footer-col">
       <h4>Datos de pago</h4>
       <p>
-        Beneficiario: <?= EMPRESA_NOMBRE ?><br>
-        Banco: <?= EMPRESA_BANCO ?><br>
-        IBAN: <?= EMPRESA_IBAN ?><br>
-        Referencia: <?= e($factura['numero']) ?>
+        <strong>Beneficiario:</strong> <?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?><br>
+        <strong>Banco:</strong> <?= e(getConfig('empresa_banco', EMPRESA_BANCO)) ?><br>
+        <strong>IBAN:</strong> <?= e(getConfig('empresa_iban', EMPRESA_IBAN)) ?><br>
+        <strong>Referencia:</strong> Factura <?= e($factura['numero']) ?>
       </p>
+      <?php if ($factura['notas']): ?>
+        <h4 class="mt-2">Notas</h4>
+        <p style="font-size: 8.5pt; font-style: italic"><?= nl2br(e($factura['notas'])) ?></p>
+      <?php endif; ?>
     </div>
-    <div class="bottom-box">
-      <h4>Información adicional</h4>
-      <p>
-        <?= EMPRESA_NOMBRE ?><br>
-        <?= EMPRESA_TEL ?><br>
-        CIF: <?= EMPRESA_CIF ?><br>
-        <?= EMPRESA_WEB ?>
-        <?php if ($factura['notas']): ?><br><br><?= nl2br(e($factura['notas'])) ?><?php endif; ?>
-      </p>
+
+    <!-- Columna derecha: DATOS DEL EMISOR -->
+    <div class="footer-col">
+      <div class="sender-box">
+        <div class="sender-header">
+          <?php if ($logo): ?>
+          <img src="<?= $logo ?>?t=<?= time() ?>" class="sender-logo" alt="Logo">
+          <?php endif; ?>
+          <div class="sender-brand"><?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></div>
+        </div>
+        <p style="font-size: 8.5pt">
+          <?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?><br>
+          CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?><br>
+          <?= e(getConfig('empresa_dir1', EMPRESA_DIR1)) ?><br>
+          <?= e(getConfig('empresa_dir2', EMPRESA_DIR2)) ?><br>
+          <?= e(getConfig('empresa_email', EMPRESA_EMAIL)) ?><br>
+          <?= e(getConfig('empresa_web', EMPRESA_WEB)) ?>
+        </p>
+      </div>
     </div>
   </div>
+
+  <!-- SECCIÓN 6: NOTA LEGAL LOPD -->
+  <div class="legal-note">
+    <?= nl2br(e(getConfig('invoice_legal', ''))) ?>
+  </div>
 </div>
-</body></html>
+</body>
+</html>
 <?php
     exit;
 }
@@ -203,7 +234,12 @@ require_once __DIR__ . '/../includes/header.php';
     </a>
     <?php endif; ?>
     <a href="nueva.php?id=<?= $id ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil me-1"></i>Editar</a>
-    <a href="?id=<?= $id ?>&pdf=1" target="_blank" class="btn btn-gold btn-sm"><i class="bi bi-printer me-1"></i>PDF / Imprimir</a>
+    
+    <!-- Botón PDF que abre el modal -->
+    <button type="button" class="btn btn-gold btn-sm" data-bs-toggle="modal" data-bs-target="#pdfModal">
+      <i class="bi bi-printer me-1"></i>Ver / Imprimir PDF
+    </button>
+
     <a href="/facturas/" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Volver</a>
   </div>
 </div>
@@ -273,5 +309,34 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
   </div>
 </div>
+
+<!-- ═══ MODAL PDF ═══ -->
+<div class="modal fade" id="pdfModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered" style="height: 90vh;">
+    <div class="modal-content h-100">
+      <div class="modal-header bg-verde text-white py-2">
+        <h5 class="modal-title" style="font-size: 1.1rem"><i class="bi bi-file-earmark-pdf me-2"></i>Vista previa de Factura</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0 bg-secondary bg-opacity-10 overflow-hidden d-flex flex-column">
+        <div class="p-2 border-bottom bg-white d-flex justify-content-between align-items-center no-print">
+            <span class="small text-muted">Factura: <strong><?= e($factura['numero']) ?></strong></span>
+            <button onclick="document.getElementById('pdfFrame').contentWindow.print()" class="btn btn-sm btn-gold px-3 fw-bold">
+                <i class="bi bi-printer me-1"></i> Imprimir / Guardar
+            </button>
+        </div>
+        <iframe id="pdfFrame" src="ver.php?id=<?= $id ?>&pdf=1" class="flex-grow-1 border-0" style="width:100%"></iframe>
+      </div>
+      <div class="modal-footer py-1">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal-xl { max-width: 900px; }
+#pdfFrame { height: 100%; min-height: 500px; }
+</style>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

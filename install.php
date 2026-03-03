@@ -7,7 +7,7 @@
  * ============================================================
  */
 
-define('APP_VERSION', '1.0');
+define('APP_VERSION', '1.2');
 define('CONFIG_FILE', __DIR__ . '/config/database.php');
 define('LOCK_FILE',   __DIR__ . '/config/.installed');
 define('SQL_FILE',    __DIR__ . '/config/install.sql');

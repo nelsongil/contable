@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/functions.php';
 
 // Si ya está logado, redirigir
 if (!empty($_SESSION['usuario_id'])) {
@@ -8,6 +9,13 @@ if (!empty($_SESSION['usuario_id'])) {
 }
 
 $error = '';
+$msg = '';
+
+if (get('reason') === 'timeout') {
+    $error = 'Tu sesión ha expirado por inactividad. Por favor, identifícate de nuevo.';
+} elseif (get('reason') === 'logout') {
+    $msg = 'Sesión cerrada correctamente.';
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = trim($_POST['username'] ?? '');
@@ -44,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Acceso — <?= EMPRESA_SOCIEDAD ?></title>
+<title>Acceso — <?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; }
@@ -98,13 +106,17 @@ input:focus { border-color: #3E7B64; box-shadow: 0 0 0 3px rgba(62,123,100,.15);
 <div class="card">
   <div class="card-top">
     <span class="icon">📒</span>
-    <div class="company"><?= htmlspecialchars(EMPRESA_SOCIEDAD) ?></div>
-    <div class="person"><?= htmlspecialchars(EMPRESA_NOMBRE) ?></div>
+    <div class="company"><?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></div>
+    <div class="person"><?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?></div>
   </div>
   <div class="card-body">
     <?php if ($error): ?>
     <div class="alert">⚠ <?= htmlspecialchars($error) ?></div>
     <?php endif; ?>
+    <?php if ($msg): ?>
+    <div class="alert" style="background:#dcfce7;border-color:#86efac;color:#166534">✓ <?= htmlspecialchars($msg) ?></div>
+    <?php endif; ?>
+    <?= showFlash() ?>
     <form method="post" autocomplete="on">
       <div class="field">
         <label for="username">Usuario</label>

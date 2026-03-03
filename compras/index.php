@@ -10,9 +10,14 @@ $totBase = $totIva = $totTotal = 0;
 foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuota_iva']; $totTotal += $f['total']; }
 ?>
 
-<div class="topbar">
+<div class="topbar fade-in-up">
   <h1><i class="bi bi-bag me-2"></i>Facturas recibidas</h1>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap align-items-center">
+    <!-- Buscador -->
+    <div class="position-relative">
+        <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-2 text-muted" style="font-size: 0.8rem;"></i>
+        <input type="text" id="compraSearch" class="form-control form-control-sm ps-4" placeholder="Buscar compra..." style="width: 180px;">
+    </div>
     <select class="form-select form-select-sm" style="width:90px" onchange="location.href='?anio='+this.value+'&trim=<?= $trim ?>'">
       <?php foreach ([date('Y'), date('Y')-1] as $y): ?>
       <option value="<?= $y ?>" <?= $y==$anio?'selected':'' ?>><?= $y ?></option>
@@ -37,10 +42,19 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
 <div class="card">
   <div class="card-header"><i class="bi bi-list me-2"></i><?= count($facturas) ?> facturas recibidas</div>
   <div class="card-body p-0">
-    <table class="table table-hover mb-0">
+    <table class="table table-hover mb-0" id="comprasTable">
       <thead>
-        <tr><th>Nº Factura</th><th>Fecha</th><th>T</th><th>Proveedor</th><th>Concepto</th>
-            <th class="text-end">Base</th><th class="text-end">IVA</th><th class="text-end">Total</th><th style="width:80px"></th></tr>
+        <tr>
+          <th class="sortable">Nº Factura</th>
+          <th class="sortable">Fecha</th>
+          <th class="sortable">T</th>
+          <th class="sortable">Proveedor</th>
+          <th>Concepto</th>
+          <th class="text-end sortable">Base</th>
+          <th class="text-end sortable">IVA</th>
+          <th class="text-end sortable">Total</th>
+          <th style="width:80px"></th>
+        </tr>
       </thead>
       <tbody>
         <?php foreach ($facturas as $f): ?>
@@ -53,7 +67,11 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
           <td class="text-end"><?= money($f['base_imponible']) ?></td>
           <td class="text-end"><?= money($f['cuota_iva']) ?></td>
           <td class="text-end fw-semibold"><?= money($f['total']) ?></td>
-          <td><a href="nueva.php?id=<?= $f['id'] ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a></td>
+          <td>
+            <div class="actions">
+              <a href="nueva.php?id=<?= $f['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar"><i class="bi bi-pencil"></i></a>
+            </div>
+          </td>
         </tr>
         <?php endforeach; ?>
         <?php if (!$facturas): ?>
@@ -74,5 +92,12 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
     </table>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    filterTable('compraSearch', 'comprasTable');
+    makeSortable(document.getElementById('comprasTable'));
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

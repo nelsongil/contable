@@ -1,6 +1,7 @@
 <?php
-$pageTitle = 'Nueva factura recibida';
-require_once __DIR__ . '/../includes/header.php';
+if (session_status() === PHP_SESSION_NONE) session_start();
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
 
 $id         = (int)get('id');
 $isEdit     = (bool)$id;
@@ -13,6 +14,51 @@ if ($isEdit) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = post('action');
+    
+    if ($action === 'import_pdf_save') {
+        // Lógica especial para importación AJAX en 2 pasos
+        $provId    = (int)post('proveedor_id');
+        $crearProv = post('crear_prov') === 'true';
+        $db = getDB();
+
+        if (!$provId && $crearProv) {
+            // Crear nuevo proveedor
+            $nombre = post('prov_nombre');
+            $nif    = post('prov_nif');
+            $dir    = post('prov_dir');
+            $st = $db->prepare("INSERT INTO proveedores (nombre, nif, direccion, activo) VALUES (?, ?, ?, 1)");
+            $st->execute([$nombre, $nif, $dir]);
+            $provId = $db->lastInsertId();
+        }
+
+        $fecha      = post('fecha') ?: date('Y-m-d');
+        $numero     = post('numero');
+        $base       = (float)post('base_imponible');
+        $pct_iva    = (float)post('pct_iva', 21);
+        $cuota_iva  = round($base * $pct_iva / 100, 2);
+        $total      = $base + $cuota_iva;
+        $descripcion= post('descripcion');
+        $trim       = trimestre($fecha);
+
+        // Obtener datos finales del proveedor (por si se acaba de crear o ya existía)
+        $st = $db->prepare("SELECT nombre, nif FROM proveedores WHERE id = ?");
+        $st->execute([$provId]);
+        $p = $st->fetch();
+
+        $data = [$fecha, $provId ?: null, $p['nombre'] ?? 'Desconocido', $p['nif'] ?? '',
+                 $base, $pct_iva, $cuota_iva, $total, $descripcion, '', $trim, $numero];
+        
+        $db->prepare("INSERT INTO facturas_recibidas
+                      (fecha,proveedor_id,proveedor_nombre,proveedor_nif,base_imponible,porcentaje_iva,cuota_iva,total,descripcion,notas,trimestre,numero)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")->execute($data);
+        
+        flash('Factura importada y guardada correctamente.');
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // Lógica normal de formulario
     $provId     = (int)post('proveedor_id');
     $proveedor  = $provId ? getProveedor($provId) : null;
     $fecha      = post('fecha') ?: date('Y-m-d');
@@ -48,6 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/compras/');
     }
 }
+
+$pageTitle = 'Nueva factura recibida';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="topbar">
@@ -69,7 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div id="pdfPanel">
     <div class="card-body">
       <p class="text-muted mb-3" style="font-size:.85rem">
-        Sube la factura en PDF y los campos se rellenarán automáticamente. El archivo se procesa en tu navegador y <strong>nunca se sube al servidor</strong>.
+        Sube la factura en PDF y los campos se rellenarán automáticamente gracias a la extracción local en el servidor.
       </p>
 
       <!-- Zona drag & drop -->
@@ -106,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!-- ═══ FORMULARIO ═══ -->
 <div class="card" style="max-width:700px">
   <div class="card-body p-4">
-    <form method="post">
+    <form method="post" id="formCompra">
       <div class="row g-3">
         <div class="col-md-8">
           <label class="form-label">Proveedor</label>
@@ -121,26 +170,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="form-text">¿Nuevo proveedor? <a href="/proveedores/nuevo.php" target="_blank">Créalo aquí</a></div>
         </div>
         <div class="col-md-4">
-          <label class="form-label">Nº Factura proveedor *</label>
-          <input type="text" name="numero" id="inputNumero" class="form-control" required value="<?= e($fr['numero'] ?? '') ?>">
+          <div class="form-floating">
+            <input type="text" name="numero" id="inputNumero" class="form-control" placeholder="Nº Factura" required value="<?= e($fr['numero'] ?? '') ?>">
+            <label for="inputNumero">Nº Factura proveedor *</label>
+          </div>
         </div>
         <div class="col-md-4">
-          <label class="form-label">Fecha *</label>
-          <input type="date" name="fecha" id="inputFecha" class="form-control" required value="<?= e($fr['fecha'] ?? date('Y-m-d')) ?>">
+          <div class="form-floating">
+            <input type="date" name="fecha" id="inputFecha" class="form-control" placeholder="Fecha" required value="<?= e($fr['fecha'] ?? date('Y-m-d')) ?>">
+            <label for="inputFecha">Fecha *</label>
+          </div>
         </div>
         <div class="col-md-4">
-          <label class="form-label">Base imponible *</label>
-          <div class="input-group">
+          <div class="form-floating">
             <input type="number" name="base_imponible" class="form-control" step="0.01" min="0" required
-                   id="baseInput" value="<?= moneyInput($fr['base_imponible'] ?? 0) ?>" oninput="recalcCompra()">
-            <span class="input-group-text">€</span>
+                   id="baseInput" value="<?= moneyInput($fr['base_imponible'] ?? 0) ?>" oninput="recalcCompra()" placeholder="Base">
+            <label for="baseInput">Base imponible *</label>
           </div>
         </div>
         <div class="col-md-4">
           <label class="form-label">IVA %</label>
           <select name="pct_iva" class="form-select" id="pctIvaCompra" onchange="recalcCompra()">
-            <?php foreach ([21, 10, 4, 0] as $t): ?>
-            <option value="<?= $t ?>" <?= ($fr['porcentaje_iva'] ?? 21) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
+            <?php 
+              $defIva = (int)getConfig('empresa_iva_def', 21);
+              foreach ([21, 10, 4, 0] as $t): 
+            ?>
+            <option value="<?= $t ?>" <?= ($fr['porcentaje_iva'] ?? $defIva) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -159,16 +214,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           </div>
         </div>
         <div class="col-12">
-          <label class="form-label">Descripción / Concepto</label>
-          <input type="text" name="descripcion" id="inputDescripcion" class="form-control" value="<?= e($fr['descripcion'] ?? '') ?>" placeholder="Ej: Material eléctrico, servicios de hosting, etc.">
+          <div class="form-floating">
+            <input type="text" name="descripcion" id="inputDescripcion" class="form-control" value="<?= e($fr['descripcion'] ?? '') ?>" placeholder="Concepto">
+            <label for="inputDescripcion">Descripción / Concepto</label>
+          </div>
         </div>
         <div class="col-12">
           <label class="form-label">Notas internas</label>
           <textarea name="notas" class="form-control" rows="2"><?= e($fr['notas'] ?? '') ?></textarea>
         </div>
         <div class="col-12 pt-2">
-          <button type="submit" class="btn btn-gold px-4">
-            <i class="bi bi-check-lg me-1"></i><?= $isEdit ? 'Guardar cambios' : 'Registrar factura' ?>
+          <button type="submit" class="btn btn-gold px-4" id="btnSubmit">
+            <span class="spinner-border spinner-border-sm d-none me-1" id="submitSpinner"></span>
+            <i class="bi bi-check-lg me-1" id="submitIcon"></i>
+            <span id="submitText"><?= $isEdit ? 'Guardar cambios' : 'Registrar factura' ?></span>
           </button>
         </div>
       </div>
@@ -182,14 +241,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </style>
 
 <script type="module">
-// ── PDF.js ──────────────────────────────────────────────────────────────────
+// ── PDF.js — DESACTIVADO (ahora se procesa en servidor) ───────────
+/*
 import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.min.mjs';
 
-// ── TomSelect ───────────────────────────────────────────────────────────────
-// (se inicializa en el script clásico de abajo para evitar conflicto de módulos)
-
-// ── Extrae todo el texto del PDF ────────────────────────────────────────────
 async function extractPdfText(file) {
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -201,6 +257,7 @@ async function extractPdfText(file) {
     }
     return text.trim();
 }
+*/
 
 // ── Procesa el PDF y rellena el formulario ──────────────────────────────────
 async function processPdf(file) {
@@ -213,35 +270,20 @@ async function processPdf(file) {
         return;
     }
 
-    setStatus(true, 'Extrayendo texto del PDF…', 30);
-
-    let text;
-    try {
-        text = await extractPdfText(file);
-    } catch (err) {
-        showResult('error', 'No se pudo leer el PDF: ' + err.message);
-        setStatus(false);
-        return;
-    }
-
-    if (!text || text.length < 20) {
-        showResult('error', 'No se pudo extraer texto. Es posible que el PDF sea una imagen escaneada.');
-        setStatus(false);
-        return;
-    }
-
-    setStatus(true, 'Analizando la factura…', 70);
+    setStatus(true, 'Subiendo y analizando factura en el servidor…', 50);
 
     let data;
     try {
-        const resp = await fetch('parse_pdf.php', {
+        const formData = new FormData();
+        formData.append('pdf', file);
+
+        const resp = await fetch('importar_pdf.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text })
+            body: formData
         });
         data = await resp.json();
     } catch (err) {
-        showResult('error', 'Error de red al analizar la factura.');
+        showResult('error', 'Error al procesar la factura en el servidor.');
         setStatus(false);
         return;
     }
@@ -254,47 +296,141 @@ async function processPdf(file) {
         return;
     }
 
-    // ── Rellenar formulario ───────────────────────────────────────────────
-    if (data.numero) document.getElementById('inputNumero').value = data.numero;
-    if (data.fecha)  document.getElementById('inputFecha').value  = data.fecha;
-    if (data.base)   { document.getElementById('baseInput').value = data.base.toFixed(2); }
-    if (data.descripcion) document.getElementById('inputDescripcion').value = data.descripcion;
+    // ─── Renderizar Formulario de Confirmación 2-pasos ────────────────────
+    
+    // Función para obtener clase CSS de confianza
+    const getConfClass = (level) => {
+        if (level === 'alta') return 'border-success bg-success-subtle';
+        if (level === 'media') return 'border-warning bg-warning-subtle';
+        return 'border-danger bg-danger-subtle';
+    };
 
-    // IVA %
-    const sel = document.getElementById('pctIvaCompra');
-    [21, 10, 4, 0].forEach(v => { if (v === data.pct_iva) sel.value = v; });
-
-    // Proveedor
+    // Checkbox para nuevo proveedor si no hay match
+    let providerInfo = '';
     if (data.proveedor_id) {
-        // Seleccionar en TomSelect
-        window._tomSelectProveedor?.setValue(String(data.proveedor_id));
+        providerInfo = `<div class="alert alert-success py-2 mb-2" style="font-size:.85rem">
+            <i class="bi bi-check-circle-fill me-1"></i> Proveedor encontrado: <strong>${escHtml(data.proveedor_nombre)}</strong>
+            <input type="hidden" id="import_prov_id" value="${data.proveedor_id}">
+        </div>`;
+    } else {
+        providerInfo = `<div class="alert alert-warning py-2 mb-2" style="font-size:.85rem">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i> Proveedor no encontrado.
+            <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" id="import_crear_prov" checked>
+                <label class="form-check-label" for="import_crear_prov" style="font-size:.75rem">
+                    ¿Crear nuevo proveedor con estos datos?
+                </label>
+            </div>
+            <div class="mt-2 p-2 bg-white rounded border ${getConfClass(data.confianza.nif)}" style="font-size:.78rem;color:#4b5563">
+                <strong>Nombre:</strong> <span id="import_prov_nombre_display">${escHtml(data.proveedor_nombre)}</span><br>
+                <strong>NIF:</strong> <span id="import_prov_nif_display">${escHtml(data.proveedor_nif)}</span>
+            </div>
+        </div>`;
     }
 
-    recalcCompra();
+    const html = `
+        <div class="verification-step bg-white p-3 border rounded shadow-sm">
+            <h6 class="mb-3" style="font-size:.9rem;color:var(--verde-a)"><i class="bi bi-1-circle me-1"></i> Paso 1: Revisar y confirmar datos</h6>
+            
+            ${providerInfo}
 
-    // ── Mostrar resumen ───────────────────────────────────────────────────
-    const nuevoBadge = data.proveedor_nuevo
-        ? `<div class="alert alert-warning mt-2 mb-0 py-2" style="font-size:.82rem">
-             <i class="bi bi-person-plus me-1"></i>
-             Proveedor <strong>${escHtml(data.nombre || data.nif || 'desconocido')}</strong>
-             no encontrado en la BD.
-             <a href="/proveedores/nuevo.php?nombre=${encodeURIComponent(data.nombre)}&nif=${encodeURIComponent(data.nif)}&direccion=${encodeURIComponent(data.direccion||'')}&cp=${encodeURIComponent(data.cp||'')}&ciudad=${encodeURIComponent(data.ciudad||'')}&provincia=${encodeURIComponent(data.provincia||'')}"
-                target="_blank" class="btn btn-sm btn-warning ms-2 py-0">
-               <i class="bi bi-plus-lg"></i> Crear proveedor
-             </a>
-             <div class="form-text mt-1">Crea el proveedor y <a href="" onclick="location.reload();return false">recarga esta página</a> para vincularlo.</div>
-           </div>`
-        : `<div class="text-success" style="font-size:.82rem"><i class="bi bi-check-circle me-1"></i>Proveedor identificado: <strong>${escHtml(data.proveedor_nombre)}</strong></div>`;
+            <div class="row g-2 mt-2">
+                <div class="col-md-6 text-start">
+                    <label class="form-label mb-0" style="font-size:.75rem">Nº Factura</label>
+                    <input type="text" id="import_numero" class="form-control form-control-sm ${getConfClass(data.confianza.numero)}" value="${escHtml(data.factura_numero)}">
+                </div>
+                <div class="col-md-6 text-start">
+                    <label class="form-label mb-0" style="font-size:.75rem">Fecha</label>
+                    <input type="date" id="import_fecha" class="form-control form-control-sm ${getConfClass(data.confianza.fecha)}" value="${data.factura_fecha}">
+                </div>
+                <div class="col-md-5 text-start">
+                    <label class="form-label mb-0" style="font-size:.75rem">Base Imponible (€)</label>
+                    <input type="number" step="0.01" id="import_base" class="form-control form-control-sm ${getConfClass(data.confianza.base)}" value="${data.base_imponible.toFixed(2)}" oninput="recalcImportModal()">
+                </div>
+                <div class="col-md-3 text-start">
+                    <label class="form-label mb-0" style="font-size:.75rem">IVA %</label>
+                    <select id="import_iva" class="form-select form-select-sm" onchange="recalcImportModal()">
+                        <option value="21" ${data.porcentaje_iva == 21 ? 'selected' : ''}>21%</option>
+                        <option value="10" ${data.porcentaje_iva == 10 ? 'selected' : ''}>10%</option>
+                        <option value="4" ${data.porcentaje_iva == 4 ? 'selected' : ''}>4%</option>
+                        <option value="0" ${data.porcentaje_iva == 0 ? 'selected' : ''}>0%</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-start">
+                    <label class="form-label mb-0" style="font-size:.75rem">Total (€)</label>
+                    <input type="text" id="import_total_display" class="form-control form-control-sm fw-bold ${getConfClass(data.confianza.total)}" readonly value="${fmt(data.total)}">
+                </div>
+                <div class="col-12 text-start">
+                    <label class="form-label mb-0" style="font-size:.75rem">Concepto / Descripción</label>
+                    <input type="text" id="import_desc" class="form-control form-control-sm" value="${escHtml(data.descripcion)}" maxlength="100">
+                </div>
+            </div>
 
-    showResult('success',
-        `<div class="d-flex flex-wrap gap-3 mb-2" style="font-size:.83rem">
-           <span><i class="bi bi-hash me-1 text-muted"></i><strong>${escHtml(data.numero || '—')}</strong></span>
-           <span><i class="bi bi-calendar3 me-1 text-muted"></i>${escHtml(data.fecha || '—')}</span>
-           <span><i class="bi bi-cash me-1 text-muted"></i>Base: <strong>${fmt(data.base)}</strong></span>
-           <span>IVA ${data.pct_iva}%: ${fmt(data.cuota_iva)}</span>
-           <span class="fw-bold">Total: ${fmt(data.total)}</span>
-         </div>` + nuevoBadge
-    );
+            <div class="mt-2 text-muted" style="font-size:.7rem; font-style: italic;">
+                * Colores indican nivel de confianza en la detección automática.
+            </div>
+
+            <div class="mt-4 text-end border-top pt-3">
+                <button type="button" class="btn btn-sm btn-outline-secondary me-2" onclick="document.getElementById('pdfResult').style.display='none'">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-success px-4" id="btnConfirmImport">
+                    <i class="bi bi-check-lg me-1"></i> Confirmar y guardar
+                </button>
+            </div>
+        </div>
+    `;
+
+    showResult('info', html);
+
+    // Función interna para recalcular en el modal
+    window.recalcImportModal = () => {
+        const base = parseFloat(document.getElementById('import_base').value) || 0;
+        const pct  = parseFloat(document.getElementById('import_iva').value)  || 0;
+        const total = base * (1 + pct/100);
+        document.getElementById('import_total_display').value = total.toLocaleString('es-ES', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+    };
+
+    // Evento para el botón de confirmar final
+    document.getElementById('btnConfirmImport').onclick = async () => {
+        const btn = document.getElementById('btnConfirmImport');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando…';
+
+        const finalData = {
+            proveedor_id:   document.getElementById('import_prov_id')?.value || null,
+            crear_prov:     document.getElementById('import_crear_prov')?.checked || false,
+            prov_nombre:    data.proveedor_nombre,
+            prov_nif:       data.proveedor_nif,
+            prov_dir:       data.proveedor_direccion,
+            numero:         document.getElementById('import_numero').value,
+            fecha:          document.getElementById('import_fecha').value,
+            base_imponible: document.getElementById('import_base').value,
+            pct_iva:        document.getElementById('import_iva').value,
+            descripcion:    document.getElementById('import_desc').value,
+            action:         'import_pdf_save'
+        };
+
+        try {
+            const resp = await fetch('nueva.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams(finalData)
+            });
+            
+            if (resp.redirected) {
+                window.location.href = resp.url;
+            } else {
+                const text = await resp.text();
+                // Si hay error (y no redirección), mostrarlo
+                showResult('error', 'Error al guardar la factura. Revisa los datos.');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Confirmar y guardar';
+            }
+        } catch (err) {
+            showResult('error', 'Error de conexión al guardar.');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Confirmar y guardar';
+        }
+    };
 }
 
 function escHtml(s) {
@@ -317,7 +453,7 @@ function showResult(type, html) {
     el.style.display = '';
     el.innerHTML = type === 'error'
         ? `<div class="alert alert-danger py-2 mb-0" style="font-size:.85rem"><i class="bi bi-exclamation-triangle me-1"></i>${html}</div>`
-        : `<div class="alert alert-success py-2 mb-0" style="font-size:.85rem"><i class="bi bi-magic me-1"></i><strong>Datos detectados:</strong><br>${html}</div>`;
+        : `<div class="p-1 mb-0">${html}</div>`;
 }
 
 // ── Event listeners ─────────────────────────────────────────────────────────
@@ -352,6 +488,19 @@ function togglePdfPanel() {
     chevron.className = hidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
 }
 recalcCompra();
+
+// ── Spinner en submit ────────────────────────────────
+document.getElementById('formCompra').addEventListener('submit', function() {
+    const btn = document.getElementById('btnSubmit');
+    const spinner = document.getElementById('submitSpinner');
+    const icon = document.getElementById('submitIcon');
+    const text = document.getElementById('submitText');
+    
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+    icon.classList.add('d-none');
+    text.textContent = 'Guardando...';
+});
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
