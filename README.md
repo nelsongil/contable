@@ -1,6 +1,3 @@
-usuario DB: nelsongi_contable_user
-usuario App: admin
-contraseña DB - app: Mec@agun01-
 # 📒 Libro Contable — Aplicación PHP
 
 ## Requisitos
