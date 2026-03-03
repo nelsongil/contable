@@ -1,0 +1,12 @@
+# Database and sensitive files
+config/database.php
+error_log
+config/.installed
+
+# PHP/Web temporary files
+.htaccess
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
