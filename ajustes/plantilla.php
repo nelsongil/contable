@@ -106,8 +106,16 @@ $fonts = [
                         <textarea name="invoice_conditions" class="form-control" rows="2"><?= e(getConfig('invoice_conditions', 'Transferencia bancaria a 30 días.')) ?></textarea>
                     </div>
                     <div class="mb-0">
-                        <label class="form-label">Nota Legal / LOPD</label>
-                        <textarea name="invoice_legal" class="form-control" rows="3"><?= e(getConfig('invoice_legal', 'En cumplimiento de la LOPD...')) ?></textarea>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label mb-0">Nota Legal / LOPD</label>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="generateLOPD()">
+                                <i class="bi bi-magic me-1"></i> Generar LOPD automáticamente
+                            </button>
+                        </div>
+                        <textarea name="invoice_legal" id="invoice_legal" class="form-control" rows="4"><?= e(getConfig('invoice_legal', 'En cumplimiento de la LOPD...')) ?></textarea>
+                        <div id="lopdWarning" class="alert alert-warning small mt-2 d-none">
+                            <i class="bi bi-exclamation-triangle me-1"></i> Faltan datos de empresa (CIF o Email) para generar el texto completo. <a href="empresa.php" class="alert-link">Corregir ahora</a>.
+                        </div>
                     </div>
                 </div>
             </div>
@@ -142,6 +150,23 @@ function previewImg(input) {
         }
         reader.readAsDataURL(input.files[0]);
     }
+}
+
+function generateLOPD() {
+    const nombre = "<?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?>";
+    const cif    = "<?= e(getConfig('empresa_cif',    EMPRESA_CIF)) ?>";
+    const dir    = "<?= e(getConfig('empresa_dir1',  EMPRESA_DIR1)) ?> " + "<?= e(getConfig('empresa_dir2', EMPRESA_DIR2)) ?>";
+    const email  = "<?= e(getConfig('empresa_email',  EMPRESA_EMAIL)) ?>";
+
+    if (!cif || !email) {
+        document.getElementById('lopdWarning').classList.remove('d-none');
+        return;
+    }
+    document.getElementById('lopdWarning').classList.add('d-none');
+
+    const texto = `De conformidad con lo establecido en el Reglamento (UE) 2016/679 del Parlamento Europeo (RGPD) y la Ley Orgánica 3/2018 de Protección de Datos Personales (LOPDGDD), le informamos que los datos personales recogidos en este documento serán tratados por ${nombre} con CIF ${cif}, con domicilio en ${dir}, con la finalidad de gestionar la relación comercial y emitir la presente factura, así como para cumplir las obligaciones legales y contables derivadas de la misma. Los datos no serán cedidos a terceros salvo obligación legal expresa. Puede ejercer sus derechos de acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad dirigiéndose a ${email}. Tiene derecho a presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).`;
+
+    document.getElementById('invoice_legal').value = texto;
 }
 </script>
 

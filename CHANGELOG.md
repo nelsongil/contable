@@ -6,6 +6,10 @@ Todos los cambios notables en este proyecto serán documentados en este archivo 
 ### Added
 - Nuevo importador de facturas PDF local (sin API externa) usando `smalot/pdfparser`.
 - Indicadores visuales de confianza (Verde/Amarillo/Rojo) en la detección de campos del PDF.
+- **Módulo Auto-updater**: Actualización automática desde GitHub con gestión de versiones.
+- **Sistema de Backup (Manual/Auto)**: Exportación e importación SQL (PDO) y copias semanales automáticas.
+- **Exportación de Configuración**: Traspaso de ajustes entre instalaciones vía JSON.
+- **Generador LOPD**: Creación automática de textos legales para la factura.
 - Documentación técnica detallada: `CONVENTIONS.md`, `SECURITY.md`, `DATABASE.md`.
 - Actualización de reglas para IAs en `AGENTS.md`.
 

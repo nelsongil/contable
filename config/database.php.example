@@ -2,7 +2,7 @@
 // Template for database configuration - RENAME TO database.php and fill in values
 // Installed: [domain] · [host]
 
-define('APP_VERSION', '1.0');
+define('APP_VERSION', '1.2');
 
 define('DB_HOST',    'localhost');
 define('DB_NAME',    'your_db_name');

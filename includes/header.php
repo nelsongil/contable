@@ -268,6 +268,9 @@ if ($update && $update['version'] !== $dismissed):
   <a href="/ajustes/tema.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/tema') ? 'active' : '' ?>">
     <i class="bi bi-brush"></i> Tema interfaz
   </a>
+  <a href="/ajustes/backup.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/backup') ? 'active' : '' ?>">
+    <i class="bi bi-database-check"></i> Copias de seguridad
+  </a>
   <a href="/ajustes/updater.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/updater') ? 'active' : '' ?>">
     <i class="bi bi-arrow-repeat"></i> Actualizaciones
     <?php if ($update && $update['version'] !== $dismissed): ?>

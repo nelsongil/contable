@@ -248,4 +248,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<!-- Trigger Auto-Backup (Silent) -->
+<script>
+fetch('ajustes/backup_process.php?action=auto_check');
+</script>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
