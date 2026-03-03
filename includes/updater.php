@@ -87,10 +87,16 @@ function checkForUpdates() {
     $currentVer = defined('APP_VERSION') ? APP_VERSION : '1.0';
 
     if (version_compare($latestVer, $currentVer, '>')) {
+        // Sanitizar notas de versión (pueden venir con \u0000 si se guardó en UTF-16)
+        $notes = $data['body'] ?? '';
+        $notes = str_replace("\0", '', $notes);
+        // Eliminar caracteres de control no deseados
+        $notes = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $notes);
+
         $_SESSION['update_available'] = [
             'version' => $latestTag,
             'url'     => $data['zipball_url'],
-            'notes'   => $data['body'],
+            'notes'   => $notes,
             'at'      => time()
         ];
         unset($_SESSION['update_error']);

@@ -1,5 +1,6 @@
 # Convenciones de Código — Libro Contable
-**CRÍTICO: Todos los archivos DEBEN guardarse en UTF-8 sin BOM.**
+**CRÍTICO: Todos los archivos DEBEN guardarse en UTF-8 sin BOM (Nunca UTF-16).**
+**PROHIBICIÓN: Nunca usar write_file o herramientas que guarden en UTF-16. Verificar siempre con: file -i CHANGELOG.md (debe ser charset=utf-8).**
 
 Documento de convenciones de código para guiar el desarrollo del proyecto.
 

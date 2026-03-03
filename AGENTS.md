@@ -2,6 +2,7 @@
 
 Documentación técnica para IAs/LLMs que trabajen con este proyecto.
 Actualizado: 2026-03-02 (v1.2)
+**CRÍTICO: NUNCA usar UTF-16. Todos los archivos DEBEN ser UTF-8 sin BOM (charset=utf-8).**
 **IMPORTANTE: Todos los archivos DEBEN guardarse en UTF-8 sin BOM (Nunca UTF-16).**
 
 ---
