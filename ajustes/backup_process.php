@@ -118,8 +118,8 @@ switch ($action) {
 
     case 'auto_check':
         // Check silencioso para el Weekly Backup
-        $auto = getConfig('backup_auto', '0');
-        if ($auto !== '1') {
+        $auto = (bool)getConfig('backup_auto', false);
+        if (!$auto) {
             echo json_encode(['ok' => true, 'msg' => 'Auto-backup desactivado.']);
             exit;
         }

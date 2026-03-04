@@ -51,7 +51,7 @@ $clientes = getClientes(!$todos);
             <div class="actions">
                 <a href="editar.php?id=<?= $c['id'] ?>" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
                 <a href="?delete=<?= $c['id'] ?>" class="btn btn-sm btn-outline-danger"
-                   onclick="return confirm('¿Desactivar este cliente?')"><i class="bi bi-archive"></i></a>
+                   data-confirm="¿Desactivar este cliente?"><i class="bi bi-archive"></i></a>
             </div>
           </td>
         </tr>

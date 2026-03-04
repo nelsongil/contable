@@ -102,7 +102,7 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
 
         <hr>
-        <form method="post" onsubmit="return confirm('¿Desactivar el módulo? Los datos se conservarán.')">
+        <form method="post" data-confirm="¿Desactivar el módulo? Los datos se conservarán.">
           <input type="hidden" name="accion" value="desactivar">
           <button type="submit" class="btn btn-outline-danger btn-sm">
             <i class="bi bi-dash-circle me-1"></i>Desactivar módulo

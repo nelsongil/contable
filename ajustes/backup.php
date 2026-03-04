@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/functions.php';
 $pageTitle = 'Copias de seguridad';
 require_once __DIR__ . '/../includes/header.php';
 
-$autoBackup    = getConfig('backup_auto', '0') === '1';
+$autoBackup    = (bool)getConfig('backup_auto', false);
 $lastAuto      = getConfig('ultimo_backup_auto', 0);
 $maxManuales   = (int)getConfig('backup_max_manuales', 10);
 $maxAuto       = (int)getConfig('backup_max_auto', 4);
@@ -153,33 +153,31 @@ document.addEventListener('DOMContentLoaded', () => {
     confirmInput.addEventListener('input', checkStatus);
     restoreSelect.addEventListener('change', checkStatus);
     
-    btnRestore.addEventListener('click', async () => {
-        if (!confirm('¿Estás SEGURO? La aplicación se reiniciará y perderás los datos actuales.')) return;
-        
-        btnRestore.disabled = true;
-        btnRestore.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Restaurando...';
-
-        try {
-            const formData = new FormData();
-            formData.append('confirm', confirmInput.value);
-            
-            const res = await fetch(`backup_process.php?action=restore&file=${restoreSelect.value}`, {
-                method: 'POST',
-                body: formData
-            });
-            const data = await res.json();
-            
-            if (data.ok) {
-                alert('Sistema restaurado con éxito. Serás redirigido al login.');
-                location.href = '../login.php';
-            } else {
-                throw new Error(data.error);
+    btnRestore.addEventListener('click', () => {
+        bsConfirm('¿Estás SEGURO? La aplicación se reiniciará y perderás los datos actuales.', async () => {
+            btnRestore.disabled = true;
+            btnRestore.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Restaurando...';
+            try {
+                const formData = new FormData();
+                formData.append('confirm', confirmInput.value);
+                const res = await fetch(`backup_process.php?action=restore&file=${restoreSelect.value}`, {
+                    method: 'POST', body: formData
+                });
+                const data = await res.json();
+                if (data.ok) {
+                    bsConfirm('Sistema restaurado con éxito. Serás redirigido al login.',
+                        () => location.href = '../login.php',
+                        { okText: 'Ir al login', okClass: 'btn-success', danger: false }
+                    );
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (err) {
+                bsConfirm('Error: ' + err.message, () => {}, { okText: 'Cerrar', okClass: 'btn-secondary', danger: false });
+                btnRestore.disabled = false;
+                btnRestore.innerHTML = '<i class="bi bi-database-fill-up me-2"></i>RESTAURAR TODO AHORA';
             }
-        } catch (err) {
-            alert('Error: ' + err.message);
-            btnRestore.disabled = false;
-            btnRestore.innerHTML = '<i class="bi bi-database-fill-up me-2"></i>RESTAURAR TODO AHORA';
-        }
+        });
     });
 });
 
@@ -248,16 +246,17 @@ async function createBackup() {
     }
 }
 
-async function deleteBackup(file) {
-    if (!confirm('¿Eliminar esta copia de seguridad para siempre?')) return;
-    try {
-        const res = await fetch(`backup_process.php?action=delete&file=${file}`);
-        const data = await res.json();
-        if (data.ok) loadBackups();
-        else throw new Error(data.error);
-    } catch (err) {
-        alert('Error: ' + err.message);
-    }
+function deleteBackup(file) {
+    bsConfirm('¿Eliminar esta copia de seguridad para siempre?', async () => {
+        try {
+            const res = await fetch(`backup_process.php?action=delete&file=${file}`);
+            const data = await res.json();
+            if (data.ok) loadBackups();
+            else throw new Error(data.error);
+        } catch (err) {
+            bsConfirm('Error: ' + err.message, () => {}, { okText: 'Cerrar', okClass: 'btn-secondary', danger: false });
+        }
+    });
 }
 
 async function saveAutoConfig() {

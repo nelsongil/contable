@@ -59,7 +59,7 @@ require_once __DIR__ . '/../includes/header.php';
               <a href="nuevo.php?id=<?= $e['id'] ?>" class="btn btn-sm btn-outline-primary me-1"><i class="bi bi-pencil"></i></a>
               <?php if ($e['activo']): ?>
               <a href="?delete=<?= $e['id'] ?>" class="btn btn-sm btn-outline-danger"
-                 onclick="return confirm('¿Desactivar a <?= e($e['nombre']) ?>?')"><i class="bi bi-archive"></i></a>
+                 data-confirm="¿Desactivar a <?= e($e['nombre']) ?>?"><i class="bi bi-archive"></i></a>
               <?php endif; ?>
             </div>
           </td>

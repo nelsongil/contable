@@ -81,6 +81,7 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1a1a1a; 
   background: #fff; border-radius: 12px; padding: .8rem 1.4rem;
   margin-bottom: 1.5rem; display: flex; align-items: center;
   justify-content: space-between; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  position: relative; z-index: 10;
 }
 .topbar h1 { font-size: 1.25rem; font-weight: 700; color: var(--verde); margin: 0; }
 
@@ -225,8 +226,12 @@ if ($update && $update['version'] !== $dismissed):
     <div class="cif">CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?></div>
   </a>
 
+  <a href="/" class="nav-link <?= $currentPage === 'index' ? 'active' : '' ?>">
+    <i class="bi bi-speedometer2"></i> Dashboard
+  </a>
+
   <div class="nav-section">Facturación</div>
-  <a href="/facturas/" class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/facturas/') !== false ? 'active' : '' ?>">
+  <a href="/facturas/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/facturas/') && !str_contains($_SERVER['REQUEST_URI'],'/facturas/nueva') ? 'active' : '' ?>">
     <i class="bi bi-receipt"></i>
     <span>Facturas emitidas</span>
     <?php if ($cntBorradores > 0): ?>
@@ -238,10 +243,10 @@ if ($update && $update['version'] !== $dismissed):
   </a>
 
   <div class="nav-section">Compras</div>
-  <a href="/compras/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/compras') ? 'active' : '' ?>">
+  <a href="/compras/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/compras') && !str_contains($_SERVER['REQUEST_URI'],'/compras/nueva') ? 'active' : '' ?>">
     <i class="bi bi-bag"></i> Facturas recibidas
   </a>
-  <a href="/compras/nueva.php" class="nav-link">
+  <a href="/compras/nueva.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/compras/nueva') ? 'active' : '' ?>">
     <i class="bi bi-plus-circle"></i> Nueva compra
   </a>
 

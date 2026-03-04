@@ -1,9 +1,61 @@
 </main>
+
+<!-- ═══ CONFIRM MODAL (global) ═══ -->
+<div class="modal fade" id="bsConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-body text-center px-4 pt-4 pb-2">
+        <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" id="bsConfirmIcon"
+             style="width:56px;height:56px;background:#fff3cd;">
+          <i class="bi bi-question-lg text-warning" style="font-size:1.8rem;"></i>
+        </div>
+        <p class="fw-semibold mb-0" id="bsConfirmMsg"></p>
+      </div>
+      <div class="modal-footer border-0 justify-content-center gap-2 pb-4">
+        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn px-4" id="bsConfirmOk">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css">
 
 <script>
+// ─── Confirm Modal ───
+function bsConfirm(msg, onConfirm, opts = {}) {
+    document.getElementById('bsConfirmMsg').textContent = msg;
+    const okBtn = document.getElementById('bsConfirmOk');
+    okBtn.textContent = opts.okText || 'Confirmar';
+    okBtn.className = 'btn px-4 ' + (opts.okClass || 'btn-danger');
+    const icon = document.getElementById('bsConfirmIcon');
+    icon.style.background = opts.danger === false ? '#d1e7dd' : '#fff3cd';
+    icon.querySelector('i').className = opts.danger === false ? 'bi bi-check-lg text-success' : 'bi bi-question-lg text-warning';
+    icon.querySelector('i').style.fontSize = '1.8rem';
+    const modal = new bootstrap.Modal(document.getElementById('bsConfirmModal'));
+    const handler = () => { modal.hide(); onConfirm(); };
+    okBtn.addEventListener('click', handler, { once: true });
+    modal.show();
+}
+
+// Delegación para enlaces con data-confirm
+document.addEventListener('click', function(e) {
+    const el = e.target.closest('a[data-confirm]');
+    if (!el) return;
+    e.preventDefault();
+    bsConfirm(el.dataset.confirm, () => location.href = el.getAttribute('href'));
+}, false);
+
+// Delegación para formularios con data-confirm
+document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (!form.dataset.confirm || form._bsConfirmed) return;
+    e.preventDefault();
+    bsConfirm(form.dataset.confirm, () => { form._bsConfirmed = true; form.submit(); });
+}, false);
+
 // ─── Inicialización de Bootstrap ───
 document.addEventListener('DOMContentLoaded', () => {
     // Tooltips

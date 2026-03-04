@@ -233,7 +233,7 @@ require_once __DIR__ . '/../includes/header.php';
   <h1><i class="bi bi-receipt me-2"></i><?= e($factura['numero']) ?> — <?= e($factura['cliente_nombre']) ?></h1>
   <div class="d-flex gap-2 flex-wrap">
     <?php if ($factura['estado'] !== 'pagada'): ?>
-    <a href="?id=<?= $id ?>&pagada=1" class="btn btn-sm btn-success" onclick="return confirm('¿Marcar como pagada?')">
+    <a href="?id=<?= $id ?>&pagada=1" class="btn btn-sm btn-success" data-confirm="¿Marcar esta factura como pagada?">
       <i class="bi bi-check-circle me-1"></i>Marcar pagada
     </a>
     <?php endif; ?>
