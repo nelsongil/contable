@@ -2,6 +2,29 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4] - 2026-03-04
+
+### Added
+- **Módulo Empleados** (opcional, activable desde Ajustes): gestión de empleados, registro de retenciones mensuales y resumen Modelo 111 trimestral.
+- **Modelo 347**: nuevo informe en Libros con clientes y proveedores con operaciones anuales ≥ 3.005,06 €, desglosado por trimestres.
+- **CLAUDE.md**: guía técnica para Claude Code con arquitectura, comandos y convenciones del proyecto.
+
+### Changed
+- **Factura PDF**: suprimidas las cabeceras del navegador al imprimir (`@page { margin:0 }` + padding en `body`).
+- **Factura PDF**: nombre y CIF de la empresa ahora aparecen junto al logo en la cabecera.
+- **Factura PDF**: eliminado el recuadro redundante de datos del emisor en el pie; los datos se muestran como texto simple.
+- **Factura PDF**: nota LOPD a ancho completo y fuente reducida a 6pt.
+- **Factura PDF**: color de acento (`invoice_color_accent`) ahora controla la línea separadora del encabezado (antes usaba `invoice_color_gold`, clave no configurable).
+- **Backup**: los datos de empresa definidos como constantes PHP se incluyen en todos los backups como `INSERT IGNORE INTO configuracion`.
+- **Backup**: límite configurable de copias manuales y automáticas con rotación automática de las más antiguas.
+- **Auto-updater**: paso `backup` reescrito para usar `generateSQLDump()` directamente (el método anterior con `ob_start + require` fallaba porque `exportar.php` llama a `exit`).
+- **Auto-updater**: `User-Agent` dinámico usando `APP_VERSION`.
+- `generateSQLDump()` centralizada en `includes/functions.php` y eliminada de los tres sitios donde estaba duplicada.
+- Enlace del logo en la barra lateral actúa como botón "Volver al dashboard".
+
+### Fixed
+- Nombre del cliente en factura PDF: si `cliente_nombre` estaba vacío en la tabla (campo desnormalizado), ahora recupera el nombre desde `getCliente()` como fallback.
+
 ## [1.3] - 2026-03-03
 ### Added
 - **Módulo Auto-updater**: Actualización automática desde GitHub con gestión de versiones.

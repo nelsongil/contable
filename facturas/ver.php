@@ -33,13 +33,17 @@ body {
     color: <?= getConfig('invoice_color_text', '#1a1a1a') ?>; 
     background: #fff; 
 }
-@page { margin: 15mm 18mm; size: A4; }
-@media print { .no-print { display: none !important; } }
+@page { margin: 0; size: A4; }
+@media print {
+  .no-print { display: none !important; }
+  body { padding: 15mm 18mm; }
+  .invoice { margin: 0 auto; }
+}
 
 .invoice { max-width: 780px; margin: 60px auto; padding: 20px; position: relative; }
 
 /* Header */
-.inv-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid <?= getConfig('invoice_color_gold', '#C9A84C') ?>; }
+.inv-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid <?= getConfig('invoice_color_accent', '#C9A84C') ?>; }
 .inv-logo-area .logo-img { max-height: 95px; max-width: 250px; display: block; }
 .inv-title-area { text-align: right; }
 .inv-title-area .factura-label { font-size: 28pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; line-height: 1; margin-bottom: 5px; }
@@ -73,13 +77,12 @@ body {
 .footer-col p { font-size: 9pt; line-height: 1.6; color: #444; }
 
 /* Sender specifics in footer */
-.sender-box { border: 1px solid <?= getConfig('invoice_color_accent', '#3E7B64') ?>; padding: 15px; border-radius: 8px; background: #fdfdfd; }
 .sender-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .sender-logo { max-height: 40px; }
 .sender-brand { font-size: 11pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; }
 
 /* Legal note */
-.legal-note { margin-top: 50px; font-size: 7pt; color: #aaa; line-height: 1.4; text-align: justify; }
+.legal-note { margin-top: 30px; font-size: 6pt; color: #aaa; line-height: 1.4; text-align: justify; width: 100%; }
 
 /* Utility */
 .mb-2 { margin-bottom: 0.5rem; }
@@ -101,10 +104,15 @@ body {
 <div class="invoice">
   <!-- SECCIÓN 1: CABECERA -->
   <div class="inv-header">
-    <div class="inv-logo-area">
+    <div class="inv-logo-area" style="display:flex;align-items:center;gap:16px;">
       <?php if ($logo = getConfig('invoice_logo', '/assets/logo.png')): ?>
       <img src="<?= $logo ?>?t=<?= time() ?>" class="logo-img" alt="Logo">
       <?php endif; ?>
+      <div>
+        <div style="font-size:13pt;font-weight:700;color:<?= getConfig('invoice_color_primary', '#1A2E2A') ?>;line-height:1.2;"><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></div>
+        <div style="font-size:8.5pt;color:#666;margin-top:3px;"><?= e(getConfig('empresa_nombre', defined('EMPRESA_NOMBRE') ? EMPRESA_NOMBRE : '')) ?></div>
+        <div style="font-size:8pt;color:#888;">CIF: <?= e(getConfig('empresa_cif', defined('EMPRESA_CIF') ? EMPRESA_CIF : '')) ?></div>
+      </div>
     </div>
     <div class="inv-title-area">
       <div class="factura-label">FACTURA</div>
@@ -117,18 +125,20 @@ body {
   </div>
 
   <!-- SECCIÓN 2: DATOS CLIENTE -->
+  <?php
+    $cli = $factura['cliente_id'] ? getCliente($factura['cliente_id']) : null;
+    $clienteNombre = $factura['cliente_nombre'] ?: ($cli ? $cli['nombre'] : '');
+    $clienteNif    = $factura['cliente_nif']    ?: ($cli ? $cli['nif']    : '');
+  ?>
   <div class="client-block">
     <div class="client-label">Facturado a:</div>
-    <div class="client-name"><?= e($factura['cliente_nombre']) ?></div>
+    <div class="client-name"><?= e($clienteNombre) ?></div>
     <div class="client-details">
-      <?php if ($factura['cliente_nif']): ?>NIF/CIF: <?= e($factura['cliente_nif']) ?><br><?php endif; ?>
-      <?php
-        $cli = $factura['cliente_id'] ? getCliente($factura['cliente_id']) : null;
-        if ($cli && $cli['direccion']):
-          echo e($cli['direccion']) . "<br>";
-          echo e($cli['cp'] . ' ' . $cli['ciudad']);
-        endif;
-      ?>
+      <?php if ($clienteNif): ?>NIF/CIF: <?= e($clienteNif) ?><br><?php endif; ?>
+      <?php if ($cli && $cli['direccion']): ?>
+        <?= e($cli['direccion']) ?><br>
+        <?= e(trim($cli['cp'] . ' ' . $cli['ciudad'])) ?>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -190,22 +200,16 @@ body {
 
     <!-- Columna derecha: DATOS DEL EMISOR -->
     <div class="footer-col">
-      <div class="sender-box">
-        <div class="sender-header">
-          <?php if ($logo): ?>
-          <img src="<?= $logo ?>?t=<?= time() ?>" class="sender-logo" alt="Logo">
-          <?php endif; ?>
-          <div class="sender-brand"><?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></div>
-        </div>
-        <p style="font-size: 8.5pt">
-          <?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?><br>
-          CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?><br>
-          <?= e(getConfig('empresa_dir1', EMPRESA_DIR1)) ?><br>
-          <?= e(getConfig('empresa_dir2', EMPRESA_DIR2)) ?><br>
-          <?= e(getConfig('empresa_email', EMPRESA_EMAIL)) ?><br>
-          <?= e(getConfig('empresa_web', EMPRESA_WEB)) ?>
-        </p>
-      </div>
+      <h4>Datos del emisor</h4>
+      <p style="font-size: 8.5pt">
+        <strong><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></strong><br>
+        <?= e(getConfig('empresa_nombre', defined('EMPRESA_NOMBRE') ? EMPRESA_NOMBRE : '')) ?><br>
+        CIF: <?= e(getConfig('empresa_cif', defined('EMPRESA_CIF') ? EMPRESA_CIF : '')) ?><br>
+        <?= e(getConfig('empresa_dir1', defined('EMPRESA_DIR1') ? EMPRESA_DIR1 : '')) ?><br>
+        <?= e(getConfig('empresa_dir2', defined('EMPRESA_DIR2') ? EMPRESA_DIR2 : '')) ?><br>
+        <?= e(getConfig('empresa_email', defined('EMPRESA_EMAIL') ? EMPRESA_EMAIL : '')) ?><br>
+        <?= e(getConfig('empresa_web', defined('EMPRESA_WEB') ? EMPRESA_WEB : '')) ?>
+      </p>
     </div>
   </div>
 

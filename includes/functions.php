@@ -212,3 +212,84 @@ function redirect(string $url): void {
     header('Location: ' . $url);
     exit;
 }
+
+// ─── Volcado SQL (Backup) ─────────────────────────────────────
+function generateSQLDump(): string {
+    $db = getDB();
+    $tables = [];
+    $res = $db->query("SHOW TABLES");
+    while ($r = $res->fetch(PDO::FETCH_NUM)) {
+        if ($r[0] !== 'sessions') $tables[] = $r[0];
+    }
+
+    $out  = "-- Backup Libro Contable — v" . (defined('APP_VERSION') ? APP_VERSION : '?') . " — " . date('Y-m-d H:i:s') . "\n";
+    $out .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
+
+    foreach ($tables as $t) {
+        $create = $db->query("SHOW CREATE TABLE `$t`")->fetch(PDO::FETCH_NUM);
+        $out .= "DROP TABLE IF EXISTS `$t`;\n" . $create[1] . ";\n\n";
+
+        $rows = $db->query("SELECT * FROM `$t`")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($rows as $row) {
+            $cols = implode("`, `", array_keys($row));
+            $vals = array_map(fn($v) => $v === null ? 'NULL' : $db->quote($v), array_values($row));
+            $out .= "INSERT INTO `$t` (`$cols`) VALUES (" . implode(", ", $vals) . ");\n";
+        }
+        $out .= "\n";
+    }
+
+    // Datos de empresa desde constantes PHP (INSERT IGNORE: solo si no existen ya en configuracion).
+    // Garantiza que el backup siempre contiene los datos de empresa aunque el usuario
+    // no los haya guardado nunca desde ajustes/empresa.php.
+    $empresaConst = [
+        'empresa_nombre'   => defined('EMPRESA_NOMBRE')   ? EMPRESA_NOMBRE   : '',
+        'empresa_sociedad' => defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '',
+        'empresa_cif'      => defined('EMPRESA_CIF')      ? EMPRESA_CIF      : '',
+        'empresa_dir1'     => defined('EMPRESA_DIR1')     ? EMPRESA_DIR1     : '',
+        'empresa_dir2'     => defined('EMPRESA_DIR2')     ? EMPRESA_DIR2     : '',
+        'empresa_tel'      => defined('EMPRESA_TEL')      ? EMPRESA_TEL      : '',
+        'empresa_email'    => defined('EMPRESA_EMAIL')    ? EMPRESA_EMAIL    : '',
+        'empresa_web'      => defined('EMPRESA_WEB')      ? EMPRESA_WEB      : '',
+        'empresa_banco'    => defined('EMPRESA_BANCO')    ? EMPRESA_BANCO    : '',
+        'empresa_iban'     => defined('EMPRESA_IBAN')     ? EMPRESA_IBAN     : '',
+        'empresa_iva_def'  => defined('EMPRESA_IVA')      ? EMPRESA_IVA      : '',
+        'empresa_irpf_def' => defined('EMPRESA_IRPF')     ? EMPRESA_IRPF     : '',
+    ];
+    $out .= "-- Datos de empresa (fallback desde config/database.php)\n";
+    foreach ($empresaConst as $clave => $valor) {
+        if ($valor !== '') {
+            $out .= "INSERT IGNORE INTO `configuracion` (`clave`, `valor`) VALUES ("
+                  . $db->quote($clave) . ", " . $db->quote((string)$valor) . ");\n";
+        }
+    }
+    $out .= "\n";
+
+    $out .= "SET FOREIGN_KEY_CHECKS=1;\n";
+    return $out;
+}
+
+// ─── Empleados ────────────────────────────────────────────────
+function getEmpleados(bool $soloActivos = true): array {
+    $db  = getDB();
+    $sql = "SELECT id, nombre, nif, puesto, salario_mensual, porcentaje_irpf, fecha_alta, activo
+            FROM empleados" . ($soloActivos ? " WHERE activo=1" : "") . " ORDER BY nombre";
+    return $db->query($sql)->fetchAll();
+}
+function getEmpleado(int $id): array|false {
+    $st = getDB()->prepare("SELECT id, nombre, nif, puesto, salario_mensual, porcentaje_irpf, fecha_alta, activo FROM empleados WHERE id=?");
+    $st->execute([$id]);
+    return $st->fetch();
+}
+function resumenModelo111(int $anio, int $trim): array {
+    $mesInicio = ($trim - 1) * 3 + 1;
+    $mesFin    = $mesInicio + 2;
+    $st = getDB()->prepare(
+        "SELECT COUNT(DISTINCT empleado_id) AS perceptores,
+                COALESCE(SUM(salario_pagado), 0) AS base,
+                COALESCE(SUM(retencion_irpf), 0) AS retenciones
+         FROM retenciones_empleados
+         WHERE anio=? AND mes BETWEEN ? AND ?"
+    );
+    $st->execute([$anio, $mesInicio, $mesFin]);
+    return $st->fetch() ?: ['perceptores' => 0, 'base' => 0.0, 'retenciones' => 0.0];
+}

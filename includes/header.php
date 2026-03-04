@@ -44,9 +44,12 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1a1a1a; 
   display: flex; flex-direction: column;
 }
 .sidebar-logo {
+  display: block; text-decoration: none;
   padding: 1.4rem 1.2rem 1rem;
   border-bottom: 2px solid var(--gold);
+  transition: background .15s;
 }
+.sidebar-logo:hover { background: rgba(255,255,255,.04); }
 .sidebar-logo .company { color: var(--gold); font-weight: 700; font-size: .95rem; }
 .sidebar-logo .person  { color: #aac7bd; font-size: .78rem; }
 .sidebar-logo .cif     { color: #6a9488; font-size: .72rem; }
@@ -216,11 +219,11 @@ if ($update && $update['version'] !== $dismissed):
 
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
-  <div class="sidebar-logo">
+  <a href="/" class="sidebar-logo">
     <div class="company"><?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></div>
     <div class="person"><?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?></div>
     <div class="cif">CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?></div>
-  </div>
+  </a>
 
   <div class="nav-section">Facturación</div>
   <a href="/facturas/" class="nav-link <?= strpos($_SERVER['REQUEST_URI'], '/facturas/') !== false ? 'active' : '' ?>">
@@ -250,12 +253,28 @@ if ($update && $update['version'] !== $dismissed):
     <i class="bi bi-truck"></i> Proveedores
   </a>
 
+  <?php if (getConfig('modulo_empleados', false)): ?>
+  <div class="nav-section">Empleados</div>
+  <a href="/empleados/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/') && !str_contains($_SERVER['REQUEST_URI'],'retenciones') && !str_contains($_SERVER['REQUEST_URI'],'modelo111') ? 'active' : '' ?>">
+    <i class="bi bi-person-badge"></i> Empleados
+  </a>
+  <a href="/empleados/retenciones.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/retenciones') ? 'active' : '' ?>">
+    <i class="bi bi-calendar3"></i> Retenciones mensuales
+  </a>
+  <a href="/empleados/modelo111.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/modelo111') ? 'active' : '' ?>">
+    <i class="bi bi-file-earmark-text"></i> Modelo 111
+  </a>
+  <?php endif; ?>
+
   <div class="nav-section">Informes</div>
   <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') ? 'active' : '' ?>">
     <i class="bi bi-journal-text"></i> Libros contables
   </a>
-  <a href="/libros/resumen.php" class="nav-link">
+  <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">
     <i class="bi bi-bar-chart"></i> Resumen fiscal
+  </a>
+  <a href="/libros/modelo347.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo347') ? 'active' : '' ?>">
+    <i class="bi bi-people"></i> Modelo 347
   </a>
 
   <div class="nav-section">Configuración</div>
@@ -267,6 +286,9 @@ if ($update && $update['version'] !== $dismissed):
   </a>
   <a href="/ajustes/tema.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/tema') ? 'active' : '' ?>">
     <i class="bi bi-brush"></i> Tema interfaz
+  </a>
+  <a href="/ajustes/empleados.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empleados') ? 'active' : '' ?>">
+    <i class="bi bi-person-gear"></i> Módulo empleados
   </a>
   <a href="/ajustes/backup.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/backup') ? 'active' : '' ?>">
     <i class="bi bi-database-check"></i> Copias de seguridad

@@ -286,93 +286,97 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
 </form>
 
 <script>
-// ── Autocomplete cliente ───────────────────────────────
-document.getElementById('selectCliente').addEventListener('change', function() {
-    const opt = this.options[this.selectedIndex];
-    const nif = opt.dataset.nif || '';
-    const dir = opt.dataset.dir || '';
-    document.getElementById('clienteNif').value = nif;
-    document.getElementById('clienteDir').value = dir;
-    document.getElementById('clienteNifRow').style.display = this.value ? '' : 'none';
-    document.getElementById('clienteDirRow').style.display = this.value ? '' : 'none';
-    document.getElementById('clienteLibreRow').style.display = this.value ? 'none' : '';
-});
-
-// ── Tom Select para búsqueda en el select de clientes ──
-new TomSelect('#selectCliente', { create: false, sortField: 'text' });
-
-// ── Cálculo automático de totales ─────────────────────
-function fmt(v) {
-    return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-}
-function recalc() {
-    let base = 0;
-    document.querySelectorAll('.linea-row').forEach(function(row) {
-        const cant  = parseFloat(row.querySelector('.linea-cant').value)   || 0;
-        const precio= parseFloat(row.querySelector('.linea-precio').value) || 0;
-        const total = Math.round(cant * precio * 100) / 100;
-        row.querySelector('.linea-total').textContent = total ? fmt(total) : '—';
-        base += total;
+document.addEventListener('DOMContentLoaded', function() {
+    // ── Autocomplete cliente ───────────────────────────────
+    document.getElementById('selectCliente').addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        const nif = opt.dataset.nif || '';
+        const dir = opt.dataset.dir || '';
+        document.getElementById('clienteNif').value = nif;
+        document.getElementById('clienteDir').value = dir;
+        document.getElementById('clienteNifRow').style.display = this.value ? '' : 'none';
+        document.getElementById('clienteDirRow').style.display = this.value ? '' : 'none';
+        document.getElementById('clienteLibreRow').style.display = this.value ? 'none' : '';
     });
-    const pctIva  = parseFloat(document.getElementById('pctIva').value)  || 0;
-    const pctIrpf = parseFloat(document.getElementById('pctIrpf').value) || 0;
-    const iva     = Math.round(base * pctIva  / 100 * 100) / 100;
-    const irpf    = Math.round(base * pctIrpf / 100 * 100) / 100;
-    const total   = base + iva;
-    const liquido = total - irpf;
 
-    document.getElementById('resBase').textContent    = fmt(base);
-    document.getElementById('resIva').textContent     = fmt(iva);
-    document.getElementById('resIrpf').textContent    = '-' + fmt(irpf);
-    document.getElementById('resTotal').textContent   = fmt(total);
-    document.getElementById('resLiquido').textContent = fmt(liquido);
-    document.getElementById('labelIva').textContent   = 'IVA (' + pctIva + '%)';
-    document.getElementById('labelIrpf').textContent  = 'Ret. IRPF (' + pctIrpf + '%)';
-    document.getElementById('rowIrpf').style.display   = pctIrpf > 0 ? '' : 'none';
-    document.getElementById('rowLiquido').style.display = pctIrpf > 0 ? '' : 'none';
-}
-
-document.getElementById('tablaLineas').addEventListener('input', recalc);
-document.getElementById('pctIva').addEventListener('change',  recalc);
-document.getElementById('pctIrpf').addEventListener('change', recalc);
-
-// ── Añadir línea ──────────────────────────────────────
-document.getElementById('btnAddLinea').addEventListener('click', function() {
-    const tbody = document.getElementById('lineasBody');
-    const tr    = document.createElement('tr');
-    tr.className = 'linea-row';
-    tr.innerHTML = `
-        <td><input type="number" name="cantidad[]"     class="linea-cant"   value="1" min="0" step="0.001"></td>
-        <td><input type="text"   name="descripcion[]"  class="linea-desc"   placeholder="Descripción"></td>
-        <td><input type="number" name="precio[]"       class="linea-precio text-end" min="0" step="0.0001" placeholder="0.00"></td>
-        <td class="text-end fw-semibold linea-total">—</td>
-        <td><button type="button" class="btn btn-sm btn-remove btn-outline-danger"><i class="bi bi-x"></i></button></td>
-    `;
-    tbody.appendChild(tr);
-    tr.querySelector('.linea-desc').focus();
-});
-
-// ── Eliminar línea ────────────────────────────────────
-document.getElementById('lineasBody').addEventListener('click', function(e) {
-    if (e.target.closest('.btn-remove')) {
-        e.target.closest('tr').remove();
-        recalc();
+    // ── Tom Select para búsqueda en el select de clientes ──
+    if (typeof TomSelect !== 'undefined') {
+        new TomSelect('#selectCliente', { create: false, sortField: 'text' });
     }
-});
 
-recalc();
+    // ── Cálculo automático de totales ─────────────────────
+    function fmt(v) {
+        return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    }
+    function recalc() {
+        let base = 0;
+        document.querySelectorAll('.linea-row').forEach(function(row) {
+            const cant  = parseFloat(row.querySelector('.linea-cant').value)   || 0;
+            const precio= parseFloat(row.querySelector('.linea-precio').value) || 0;
+            const total = Math.round(cant * precio * 100) / 100;
+            row.querySelector('.linea-total').textContent = total ? fmt(total) : '—';
+            base += total;
+        });
+        const pctIva  = parseFloat(document.getElementById('pctIva').value)  || 0;
+        const pctIrpf = parseFloat(document.getElementById('pctIrpf').value) || 0;
+        const iva     = Math.round(base * pctIva  / 100 * 100) / 100;
+        const irpf    = Math.round(base * pctIrpf / 100 * 100) / 100;
+        const total   = base + iva;
+        const liquido = total - irpf;
 
-// ── Spinner en submit ────────────────────────────────
-document.getElementById('formFactura').addEventListener('submit', function() {
-    const btn = document.getElementById('btnSubmit');
-    const spinner = document.getElementById('submitSpinner');
-    const icon = document.getElementById('submitIcon');
-    const text = document.getElementById('submitText');
-    
-    btn.disabled = true;
-    spinner.classList.remove('d-none');
-    icon.classList.add('d-none');
-    text.textContent = 'Guardando...';
+        document.getElementById('resBase').textContent    = fmt(base);
+        document.getElementById('resIva').textContent     = fmt(iva);
+        document.getElementById('resIrpf').textContent    = '-' + fmt(irpf);
+        document.getElementById('resTotal').textContent   = fmt(total);
+        document.getElementById('resLiquido').textContent = fmt(liquido);
+        document.getElementById('labelIva').textContent   = 'IVA (' + pctIva + '%)';
+        document.getElementById('labelIrpf').textContent  = 'Ret. IRPF (' + pctIrpf + '%)';
+        document.getElementById('rowIrpf').style.display   = pctIrpf > 0 ? '' : 'none';
+        document.getElementById('rowLiquido').style.display = pctIrpf > 0 ? '' : 'none';
+    }
+
+    document.getElementById('tablaLineas').addEventListener('input', recalc);
+    document.getElementById('pctIva').addEventListener('change',  recalc);
+    document.getElementById('pctIrpf').addEventListener('change', recalc);
+
+    // ── Añadir línea ──────────────────────────────────────
+    document.getElementById('btnAddLinea').addEventListener('click', function() {
+        const tbody = document.getElementById('lineasBody');
+        const tr    = document.createElement('tr');
+        tr.className = 'linea-row';
+        tr.innerHTML = `
+            <td><input type="number" name="cantidad[]"     class="linea-cant"   value="1" min="0" step="0.001"></td>
+            <td><input type="text"   name="descripcion[]"  class="linea-desc"   placeholder="Descripción"></td>
+            <td><input type="number" name="precio[]"       class="linea-precio text-end" min="0" step="0.0001" placeholder="0.00"></td>
+            <td class="text-end fw-semibold linea-total">—</td>
+            <td><button type="button" class="btn btn-sm btn-remove btn-outline-danger"><i class="bi bi-x"></i></button></td>
+        `;
+        tbody.appendChild(tr);
+        tr.querySelector('.linea-desc').focus();
+    });
+
+    // ── Eliminar línea ────────────────────────────────────
+    document.getElementById('lineasBody').addEventListener('click', function(e) {
+        if (e.target.closest('.btn-remove')) {
+            e.target.closest('tr').remove();
+            recalc();
+        }
+    });
+
+    recalc();
+
+    // ── Spinner en submit ────────────────────────────────
+    document.getElementById('formFactura').addEventListener('submit', function() {
+        const btn = document.getElementById('btnSubmit');
+        const spinner = document.getElementById('submitSpinner');
+        const icon = document.getElementById('submitIcon');
+        const text = document.getElementById('submitText');
+        
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        icon.classList.add('d-none');
+        text.textContent = 'Guardando...';
+    });
 });
 </script>
 

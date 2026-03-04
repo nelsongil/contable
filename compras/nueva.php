@@ -469,37 +469,41 @@ window.handleDrop = function(e) {
 </script>
 
 <script>
-// Script clásico (no módulo) para TomSelect y recalc
-window._tomSelectProveedor = new TomSelect('#selectProveedor', { create: false, sortField: 'text' });
+document.addEventListener('DOMContentLoaded', function() {
+    // Script clásico (no módulo) para TomSelect y recalc
+    if (typeof TomSelect !== 'undefined') {
+        window._tomSelectProveedor = new TomSelect('#selectProveedor', { create: false, sortField: 'text' });
+    }
 
-function fmt(v) { return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function recalcCompra() {
-    const base  = parseFloat(document.getElementById('baseInput').value)    || 0;
-    const pct   = parseFloat(document.getElementById('pctIvaCompra').value) || 0;
-    const cuota = Math.round(base * pct / 100 * 100) / 100;
-    document.getElementById('cuotaIvaDisplay').value = fmt(cuota);
-    document.getElementById('totalDisplay').value    = fmt(base + cuota);
-}
-function togglePdfPanel() {
-    const panel   = document.getElementById('pdfPanel');
-    const chevron = document.getElementById('pdfChevron');
-    const hidden  = panel.style.display === 'none';
-    panel.style.display  = hidden ? '' : 'none';
-    chevron.className = hidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
-}
-recalcCompra();
+    window.fmt = function(v) { return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    window.recalcCompra = function() {
+        const base  = parseFloat(document.getElementById('baseInput').value)    || 0;
+        const pct   = parseFloat(document.getElementById('pctIvaCompra').value) || 0;
+        const cuota = Math.round(base * pct / 100 * 100) / 100;
+        document.getElementById('cuotaIvaDisplay').value = window.fmt(cuota);
+        document.getElementById('totalDisplay').value    = window.fmt(base + cuota);
+    }
+    window.togglePdfPanel = function() {
+        const panel   = document.getElementById('pdfPanel');
+        const chevron = document.getElementById('pdfChevron');
+        const hidden  = panel.style.display === 'none';
+        panel.style.display  = hidden ? '' : 'none';
+        chevron.className = hidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+    }
+    window.recalcCompra();
 
-// ── Spinner en submit ────────────────────────────────
-document.getElementById('formCompra').addEventListener('submit', function() {
-    const btn = document.getElementById('btnSubmit');
-    const spinner = document.getElementById('submitSpinner');
-    const icon = document.getElementById('submitIcon');
-    const text = document.getElementById('submitText');
-    
-    btn.disabled = true;
-    spinner.classList.remove('d-none');
-    icon.classList.add('d-none');
-    text.textContent = 'Guardando...';
+    // ── Spinner en submit ────────────────────────────────
+    document.getElementById('formCompra').addEventListener('submit', function() {
+        const btn = document.getElementById('btnSubmit');
+        const spinner = document.getElementById('submitSpinner');
+        const icon = document.getElementById('submitIcon');
+        const text = document.getElementById('submitText');
+        
+        btn.disabled = true;
+        spinner.classList.remove('d-none');
+        icon.classList.add('d-none');
+        text.textContent = 'Guardando...';
+    });
 });
 </script>
 

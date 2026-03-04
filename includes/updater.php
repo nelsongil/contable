@@ -29,7 +29,7 @@ function checkForUpdates() {
     curl_setopt_array($ch, [
         CURLOPT_URL            => $url,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_USERAGENT      => 'contable-app/1.2', // GitHub requiere User-Agent
+        CURLOPT_USERAGENT      => 'Libro-Contable/' . (defined('APP_VERSION') ? APP_VERSION : '1.0'),
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_SSL_VERIFYPEER => true

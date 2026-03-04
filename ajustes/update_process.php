@@ -33,17 +33,14 @@ header('Content-Type: application/json');
 switch ($step) {
     case 'backup':
         try {
-            $filename = 'backup_auto_' . date('Ymd_His') . '.sql';
+            $filename = 'backup_pre_update_' . date('Ymd_His') . '.sql';
             $path = $backupDir . '/' . $filename;
-            
-            ob_start();
-            $_GET['backup'] = '1';
-            require __DIR__ . '/../libros/exportar.php';
-            $sqlContent = ob_get_clean();
-            
-            if (empty($sqlContent)) throw new Exception("Error al generar el volcado SQL.");
-            
-            file_put_contents($path, $sqlContent);
+
+            $sql = generateSQLDump();
+            if (file_put_contents($path, $sql) === false) {
+                throw new Exception("No se pudo escribir el backup en el servidor.");
+            }
+
             echo json_encode(['ok' => true, 'file' => $filename]);
         } catch (Exception $e) {
             echo json_encode(['ok' => false, 'error' => 'Fallo en backup: ' . $e->getMessage()]);
@@ -54,17 +51,26 @@ switch ($step) {
         try {
             $url = $updateData['url'];
             $zipFile = $tmpDir . '/update.zip';
-            
+
             $ch = curl_init($url);
             $fp = fopen($zipFile, 'wb');
             curl_setopt($ch, CURLOPT_FILE, $fp);
             curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-            curl_setopt($ch, CURLOPT_USERAGENT, 'Libro-Contable-Updater/1.0');
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Libro-Contable-Updater/' . (defined('APP_VERSION') ? APP_VERSION : '1.0'));
             curl_setopt($ch, CURLOPT_TIMEOUT, 90);
-            curl_exec($ch);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            $res      = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr  = curl_error($ch);
             curl_close($ch);
             fclose($fp);
 
+            if ($res === false || $curlErr) {
+                throw new Exception("Error de red al descargar el paquete: $curlErr");
+            }
+            if ($httpCode >= 400) {
+                throw new Exception("GitHub devolvió HTTP $httpCode al descargar el paquete.");
+            }
             if (!file_exists($zipFile) || filesize($zipFile) < 1000) {
                 throw new Exception("El archivo descargado no es válido o está incompleto.");
             }

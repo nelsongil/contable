@@ -24,14 +24,23 @@ switch ($action) {
         try {
             $filename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
             $path = $backupDir . '/' . $filename;
-            
+
             $sql = generateSQLDump();
             if (file_put_contents($path, $sql) === false) {
                 throw new Exception("No se pudo escribir el archivo en el servidor.");
             }
 
+            // Rotar backups manuales: eliminar los más antiguos si superan el límite
+            $maxManuales = max(1, (int)getConfig('backup_max_manuales', 10));
+            $todosBackups = glob($backupDir . '/backup_*.sql') ?: [];
+            $manuales = array_values(array_filter($todosBackups, fn($f) => !str_contains(basename($f), 'auto')));
+            usort($manuales, fn($a, $b) => filemtime($a) - filemtime($b));
+            while (count($manuales) > $maxManuales) {
+                @unlink(array_shift($manuales));
+            }
+
             echo json_encode([
-                'ok' => true, 
+                'ok' => true,
                 'filename' => $filename,
                 'size' => formatBytes(filesize($path)),
                 'date' => date('d/m/Y H:i')
@@ -127,12 +136,12 @@ switch ($action) {
                 
                 setConfig('ultimo_backup_auto', time());
                 
-                // Rotación: Máximo 4 automáticos
-                $autoFiles = glob($backupDir . '/backup_auto_*.sql');
-                usort($autoFiles, fn($a, $b) => filemtime($a) - filemtime($b)); // Más viejos primero
-                while (count($autoFiles) > 4) {
-                    $old = array_shift($autoFiles);
-                    unlink($old);
+                // Rotación automáticos según límite configurable
+                $maxAuto = max(1, (int)getConfig('backup_max_auto', 4));
+                $autoFiles = glob($backupDir . '/backup_auto_*.sql') ?: [];
+                usort($autoFiles, fn($a, $b) => filemtime($a) - filemtime($b));
+                while (count($autoFiles) > $maxAuto) {
+                    @unlink(array_shift($autoFiles));
                 }
                 
                 echo json_encode(['ok' => true, 'msg' => 'Auto-backup realizado.']);
@@ -147,7 +156,7 @@ switch ($action) {
     case 'set_config':
         $key = get('key');
         $val = get('val');
-        if (in_array($key, ['backup_auto'])) {
+        if (in_array($key, ['backup_auto', 'backup_max_manuales', 'backup_max_auto'])) {
             setConfig($key, $val);
             echo json_encode(['ok' => true]);
         } else {
@@ -159,35 +168,7 @@ switch ($action) {
         echo json_encode(['ok' => false, 'error' => 'Acción no reconocida.']);
 }
 
-/**
- * Genera el volcado SQL completo usando PDO
- */
-function generateSQLDump() {
-    $db = getDB();
-    $tables = [];
-    $res = $db->query("SHOW TABLES");
-    while ($r = $res->fetch(PDO::FETCH_NUM)) {
-        if ($r[0] !== 'sessions') $tables[] = $r[0];
-    }
-
-    $out = "-- Backup Libro Contable — v" . APP_VERSION . " — " . date('Y-m-d H:i:s') . "\n";
-    $out .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
-
-    foreach ($tables as $t) {
-        $create = $db->query("SHOW CREATE TABLE `$t`")->fetch(PDO::FETCH_NUM);
-        $out .= "DROP TABLE IF EXISTS `$t`;\n" . $create[1] . ";\n\n";
-        
-        $rows = $db->query("SELECT * FROM `$t`")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows as $row) {
-            $cols = implode("`, `", array_keys($row));
-            $vals = array_map(fn($v) => $v === null ? 'NULL' : $db->quote($v), array_values($row));
-            $out .= "INSERT INTO `$t` (`$cols`) VALUES (" . implode(", ", $vals) . ");\n";
-        }
-        $out .= "\n";
-    }
-    $out .= "SET FOREIGN_KEY_CHECKS=1;\n";
-    return $out;
-}
+// generateSQLDump() está definida en includes/functions.php
 
 function formatBytes($bytes, $precision = 2) {
     if ($bytes <= 0) return '0 B';

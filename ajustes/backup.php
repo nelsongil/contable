@@ -5,8 +5,10 @@ require_once __DIR__ . '/../includes/functions.php';
 $pageTitle = 'Copias de seguridad';
 require_once __DIR__ . '/../includes/header.php';
 
-$autoBackup = getConfig('backup_auto', '0') === '1';
-$lastAuto = getConfig('ultimo_backup_auto', 0);
+$autoBackup    = getConfig('backup_auto', '0') === '1';
+$lastAuto      = getConfig('ultimo_backup_auto', 0);
+$maxManuales   = (int)getConfig('backup_max_manuales', 10);
+$maxAuto       = (int)getConfig('backup_max_auto', 4);
 ?>
 
 <div class="topbar">
@@ -91,7 +93,7 @@ $lastAuto = getConfig('ultimo_backup_auto', 0);
           <input class="form-check-input" type="checkbox" id="checkAuto" <?= $autoBackup ? 'checked' : '' ?> onchange="saveAutoConfig()">
           <label class="form-check-label fw-bold" for="checkAuto">Copia semanal automática</label>
         </div>
-        <p class="small text-muted">Si se activa, el sistema realizará un backup cada 7 días al abrir el panel de control. Se guardarán únicamente las últimas 4 copias automáticas.</p>
+        <p class="small text-muted mb-3">Si se activa, el sistema realizará un backup cada 7 días al abrir el panel de control.</p>
         <?php if ($lastAuto): ?>
         <div class="alert alert-light border p-2 mb-0" style="font-size: .75rem;">
             <i class="bi bi-clock-history me-1"></i> Último auto-backup: <?= date('d/m/Y H:i', $lastAuto) ?>
@@ -100,11 +102,34 @@ $lastAuto = getConfig('ultimo_backup_auto', 0);
       </div>
     </div>
 
+    <div class="card mb-4">
+      <div class="card-header"><i class="bi bi-sliders me-2"></i>Límite de copias guardadas</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <label class="form-label small fw-bold">Copias manuales máximas</label>
+            <input type="number" id="inputMaxManuales" class="form-control form-control-sm"
+                   min="1" max="50" value="<?= $maxManuales ?>"
+                   onchange="saveLimit('backup_max_manuales', this.value)">
+            <div class="form-text">Las más antiguas se eliminan al crear una nueva.</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label small fw-bold">Copias automáticas máximas</label>
+            <input type="number" id="inputMaxAuto" class="form-control form-control-sm"
+                   min="1" max="20" value="<?= $maxAuto ?>"
+                   onchange="saveLimit('backup_max_auto', this.value)">
+            <div class="form-text">Las más antiguas se eliminan al hacer el semanal.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header bg-light"><i class="bi bi-shield-check me-2"></i>Seguridad</div>
       <div class="card-body p-4 small">
         <ul class="mb-0 ps-3">
             <li class="mb-2">Los archivos se guardan en <code>/backups/</code>.</li>
+            <li class="mb-2">Cada backup incluye los datos de empresa aunque no hayas guardado en Ajustes.</li>
             <li class="mb-2">Se recomienda descargar las copias importantes a tu ordenador personal.</li>
             <li>El sistema excluye la tabla de sesiones para mayor ligereza.</li>
         </ul>
@@ -238,6 +263,11 @@ async function deleteBackup(file) {
 async function saveAutoConfig() {
     const val = document.getElementById('checkAuto').checked ? '1' : '0';
     fetch('backup_process.php?action=set_config&key=backup_auto&val=' + val);
+}
+
+async function saveLimit(key, val) {
+    val = Math.max(1, parseInt(val) || 1);
+    await fetch(`backup_process.php?action=set_config&key=${key}&val=${val}`);
 }
 </script>
 
