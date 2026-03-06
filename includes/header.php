@@ -39,10 +39,13 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1a1a1a; 
 
 /* ── Sidebar ── */
 .sidebar {
-  width: var(--sidebar); min-height: 100vh; background: var(--verde);
+  width: var(--sidebar); height: 100vh; background: var(--verde);
   position: fixed; top: 0; left: 0; z-index: 100;
   display: flex; flex-direction: column;
+  overflow-y: auto;
 }
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 2px; }
 .sidebar-logo {
   display: block; text-decoration: none;
   padding: 1.4rem 1.2rem 1rem;
@@ -226,7 +229,7 @@ if ($update && $update['version'] !== $dismissed):
     <div class="cif">CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?></div>
   </a>
 
-  <a href="/" class="nav-link <?= $currentPage === 'index' ? 'active' : '' ?>">
+  <a href="/" class="nav-link <?= $_SERVER['PHP_SELF'] === '/index.php' ? 'active' : '' ?>">
     <i class="bi bi-speedometer2"></i> Dashboard
   </a>
 
@@ -238,7 +241,7 @@ if ($update && $update['version'] !== $dismissed):
     <span class="position-absolute translate-middle p-1 bg-danger border border-light rounded-circle" style="top: 15px; left: 25px;" title="<?= $cntBorradores ?> borradores pendientes" data-bs-toggle="tooltip"></span>
     <?php endif; ?>
   </a>
-  <a href="/facturas/nueva.php" class="nav-link <?= $currentPage==='nueva' ? 'active' : '' ?>">
+  <a href="/facturas/nueva.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/facturas/nueva') ? 'active' : '' ?>">
     <i class="bi bi-plus-circle"></i> Nueva factura
   </a>
 
@@ -272,7 +275,7 @@ if ($update && $update['version'] !== $dismissed):
   <?php endif; ?>
 
   <div class="nav-section">Informes</div>
-  <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') ? 'active' : '' ?>">
+  <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') && !str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') && !str_contains($_SERVER['REQUEST_URI'],'/libros/modelo347') ? 'active' : '' ?>">
     <i class="bi bi-journal-text"></i> Libros contables
   </a>
   <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">

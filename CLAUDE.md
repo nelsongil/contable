@@ -9,6 +9,7 @@ Responder siempre en español, independientemente del idioma en que se formule l
 ## Visión General del Proyecto
 
 **Libro Contable** es una aplicación de contabilidad PHP ligera y autocontenida para autónomos españoles. Gestiona facturación, registro de gastos, clientes y proveedores, generación de libros contables e informes fiscales (Modelos 303/130). Sin framework, sin herramientas de compilación — PHP procedimental puro con MySQL y Bootstrap 5.3 via CDN.
+SOLO PARA TENER CONTROL CONTABLE, NO REEMPLAZA A UN ASESOR FISCAL
 
 ## Comandos de Desarrollo
 

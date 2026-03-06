@@ -2,6 +2,21 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5] - 2026-03-06
+
+### Changed
+- **Sidebar**: ahora es scrollable (`overflow-y: auto`) cuando el contenido supera la altura de pantalla; evita que items de Configuración queden ocultos con el módulo Empleados activo.
+- **Menú activo**: corregidos los estados activos duplicados en varios módulos:
+  - "Nueva factura" ya no se marca activa en `/compras/nueva.php`.
+  - "Libros contables" ya no se marca activa al navegar a Resumen fiscal o Modelo 347.
+  - "Dashboard" ya no se marca activa en páginas de submódulos con `index.php`.
+
+### Fixed
+- **Confirmaciones Bootstrap**: todos los `confirm()` y `alert()` del navegador reemplazados por modales Bootstrap (`bsConfirm`) en facturas, clientes, proveedores, empleados y backups.
+- **Copia de seguridad automática**: corregida conversión de tipo en `getConfig()` que impedía persistir el estado activo del toggle de backup automático.
+- **Menú**: enlace al Dashboard añadido y accesible desde cualquier módulo.
+- **Dropdown**: resuelto el problema de z-index que hacía que el menú "+Nuevo ingreso/gasto" quedara detrás de las tarjetas.
+
 ## [1.4] - 2026-03-04
 
 ### Added
