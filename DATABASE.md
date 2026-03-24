@@ -51,6 +51,31 @@ Control de secuencia anual para facturas emitidas.
 - `anio`: Año fiscal (PK).
 - `ultimo`: Último número correlativo utilizado.
 
+### `configuracion`
+Almacén clave-valor para ajustes en tiempo de ejecución.
+- `clave`: VARCHAR(100) PRIMARY KEY.
+- `valor`: TEXT — siempre string; la conversión a bool/int la hace `getConfig()`.
+- Acceder **exclusivamente** via `getConfig('clave', $default)` y `setConfig('clave', $valor)`.
+
+### `empleados` (módulo opcional, v1.4+)
+Empleados registrados en la empresa.
+- `nombre`: Nombre completo.
+- `nif`: NIF del empleado.
+- `puesto`: Descripción del puesto.
+- `salario_mensual`: `DECIMAL(12,2)`.
+- `porcentaje_irpf`: `DECIMAL(5,2)` — retención aplicada.
+- `fecha_alta`: `DATE`.
+- `activo`: `TINYINT(1)` — soft delete (nunca DELETE físico).
+
+### `retenciones_empleados` (módulo opcional, v1.4+)
+Registro mensual de retenciones IRPF por empleado.
+- `empleado_id`: FK → `empleados.id` (CASCADE DELETE).
+- `anio`: `YEAR`.
+- `mes`: `TINYINT UNSIGNED` (1-12).
+- `salario_pagado`: `DECIMAL(12,2)`.
+- `retencion_irpf`: `DECIMAL(12,2)`.
+- UNIQUE KEY `(empleado_id, anio, mes)` — un registro por empleado y mes.
+
 ## Relaciones
 
 ```mermaid
@@ -59,6 +84,7 @@ erDiagram
     clientes ||--o{ facturas_emitidas : "recibe"
     facturas_emitidas ||--o{ facturas_emitidas_lineas : "contiene"
     proveedores ||--o{ facturas_recibidas : "emite"
+    empleados ||--o{ retenciones_empleados : "tiene"
 ```
 
 ## Convenciones de BD
@@ -70,8 +96,19 @@ erDiagram
 
 ## Migraciones
 Los cambios en el esquema deben documentarse aquí y aplicarse mediante scripts idempotentes en `config/migrations/`.
-- *(Ejemplo: 2026-03-03_add_tipo_gasto.sql - Añadido campo tipo a facturas_recibidas)*
+El auto-updater ejecuta automáticamente todos los `.sql` de esa carpeta en el paso `install` (orden alfabético).
+
+Historial de migraciones aplicadas:
+- `2026-03-04_empleados.sql` — Tablas `empleados` y `retenciones_empleados` (v1.4)
+
+Formato recomendado para nuevas migraciones:
+```sql
+-- Usar IF NOT EXISTS / IF EXISTS para que sean idempotentes
+ALTER TABLE facturas_recibidas ADD COLUMN IF NOT EXISTS tipo_gasto VARCHAR(50) DEFAULT NULL;
+```
 
 ## Backup
-- **Frecuencia**: Se recomienda backup semanal.
-- **Método**: Exportación SQL (Estructura + Datos) comprimida en GZIP desde phpMyAdmin.
+- **Método automático**: `generateSQLDump()` en `functions.php` — genera SQL completo de todas las tablas.
+- **Almacenamiento**: `backups/` (bloqueado por `.htaccess`).
+- **Backup pre-actualización**: El auto-updater genera un backup antes de instalar cada versión nueva.
+- **Backup manual**: Desde `ajustes/backup.php` o exportación desde phpMyAdmin.

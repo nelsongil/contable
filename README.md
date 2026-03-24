@@ -1,8 +1,5 @@
-usuario DB: nelsongi_contable_user
-usuario App: admin
-contraseña DB - app: Mec@gun01-
 # 📒 Libro Contable — Aplicación PHP
-**v1.0** (Baseline)
+**v1.5**
 
 ## Requisitos
 - PHP 8.0+
@@ -52,19 +49,33 @@ contable/
 │   └── ver.php            ← Ver factura + generar PDF (modo ?pdf=1)
 ├── compras/
 │   ├── index.php          ← Lista de facturas recibidas
-│   └── nueva.php          ← Registrar/editar compra
+│   ├── nueva.php          ← Registrar/editar compra
+│   └── importar_pdf.php   ← Endpoint AJAX: extrae datos de facturas PDF (smalot/pdfparser)
 ├── clientes/
 │   ├── index.php          ← Lista de clientes
 │   ├── nuevo.php          ← Crear cliente
 │   └── editar.php         ← Editar cliente
 ├── proveedores/
 │   ├── index.php          ← Lista de proveedores
-│   ├── nuevo.php          ← Crear proveedor
+│   ├── nuevo.php          ← Crear proveedor (acepta ?nombre=&nif= desde PDF import)
 │   └── editar.php         ← Editar proveedor
-└── libros/
-    ├── index.php          ← Libro de ventas por trimestre
-    ├── resumen.php        ← Resumen fiscal (303/130)
-    └── exportar.php       ← Exportar a CSV/Excel
+├── empleados/             ← Módulo opcional (activar en Ajustes)
+│   ├── index.php          ← Lista de empleados
+│   ├── nuevo.php          ← Crear/editar empleado
+│   ├── retenciones.php    ← Registro mensual de retenciones IRPF
+│   └── modelo111.php      ← Resumen Modelo 111 trimestral
+├── libros/
+│   ├── index.php          ← Libro de ventas por trimestre
+│   ├── resumen.php        ← Resumen fiscal (303/130)
+│   ├── modelo347.php      ← Modelo 347 (operaciones ≥ 3.005,06 €/año)
+│   └── exportar.php       ← Exportar a CSV/Excel
+└── ajustes/
+    ├── empresa.php        ← Datos empresa + numeración facturas
+    ├── plantilla.php      ← Colores y logo de la factura PDF
+    ├── tema.php           ← Colores de la interfaz
+    ├── empleados.php      ← Activar/desactivar módulo empleados
+    ├── backup.php         ← Copias de seguridad (manual + automático)
+    └── updater.php        ← Actualización automática desde GitHub
 ```
 
 ---
@@ -75,9 +86,14 @@ contable/
 - ✅ Gestión de proveedores
 - ✅ Facturas emitidas con líneas detalladas, IVA y retención IRPF
 - ✅ Facturas recibidas (compras) con desglose de IVA editable
+- ✅ Importación de facturas desde PDF (extracción automática de datos con smalot/pdfparser)
 - ✅ Generación de PDF de facturas (vía impresión del navegador, `?pdf=1`)
 - ✅ Libro de ventas y compras por trimestre
 - ✅ Resumen fiscal trimestral (Modelos 303 y 130)
+- ✅ Modelo 347 (clientes y proveedores con operaciones ≥ 3.005,06 €/año)
+- ✅ Módulo Empleados opcional: gestión, retenciones mensuales y Modelo 111
+- ✅ Copias de seguridad automáticas y manuales (SQL)
+- ✅ Actualización automática desde GitHub (auto-updater)
 - ✅ Exportación a CSV compatible con Excel
 
 ---
@@ -93,6 +109,11 @@ Require valid-user
 WebEmpresa permite generarlo desde su panel de control.
 
 ---
+
+## Requisitos del servidor
+- PHP 8.0+ con extensiones: `pdo_mysql`, `curl`, `zip`, `mbstring`
+- MySQL 5.7+ / MariaDB 10.3+
+- Apache con `mod_rewrite` habilitado
 
 ## Changelog
 Ver historial completo de cambios en [CHANGELOG.md](CHANGELOG.md)

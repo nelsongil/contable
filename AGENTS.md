@@ -1,7 +1,7 @@
 # AGENTS.md — Libro Contable PHP
 
 Documentación técnica para IAs/LLMs que trabajen con este proyecto.
-Actualizado: 2026-03-02 (v1.2)
+Actualizado: 2026-03-06 (v1.5)
 **CRÍTICO: NUNCA usar UTF-16. Todos los archivos DEBEN ser UTF-8 sin BOM (charset=utf-8).**
 **IMPORTANTE: Todos los archivos DEBEN guardarse en UTF-8 sin BOM (Nunca UTF-16).**
 
@@ -58,7 +58,10 @@ require_once includes/footer.php (cierra </body></html>)
 | `facturas_emitidas_lineas` | Líneas de cada factura emitida (N:1 con facturas_emitidas) |
 | `facturas_recibidas` | Facturas de compra/gasto. Sin líneas detalladas |
 | `numeracion` | Secuencia de numeración de facturas por año |
+| `configuracion` | Pares clave-valor para ajustes en runtime (tema, empresa, factura…) |
 | `usuarios` | Usuarios de acceso (username, password BCrypt, ultimo_acceso) |
+| `empleados` | Empleados (módulo opcional). nombre, NIF, puesto, salario, IRPF% |
+| `retenciones_empleados` | Retenciones IRPF mensuales. UNIQUE (empleado_id, anio, mes) |
 
 ### Convenciones de BD
 - Todos los campos monetarios son `DECIMAL(12,2)`
@@ -90,6 +93,11 @@ Ver `config/install.sql` para el DDL completo.
 | `getLineasFactura(facturaId)` | Líneas de una factura emitida |
 | `getFacturasRecibidas(anio, trim)` | Lista compras con JOIN a proveedores |
 | `resumenTrimestral(anio, trim)` | Devuelve array con ventas_base, compras_base, iva_resultado, rendimiento, etc. |
+| `getEmpleados(soloActivos)` | Lista empleados activos (o todos) |
+| `getEmpleado(id)` | Un empleado por ID |
+| `resumenModelo111(anio, trim)` | Perceptores, base y retenciones IRPF del trimestre |
+| `generateSQLDump()` | Genera volcado SQL completo de la BD (usado en backup y updater) |
+| `getThemeCSS()` | Devuelve `<style>` con variables `:root` personalizadas desde configuracion |
 | `flash(msg, type)` | Guarda mensaje en `$_SESSION['flash']` |
 | `showFlash()` | Consume y renderiza el flash como alerta Bootstrap |
 | `redirect(url)` | Header Location + exit |
@@ -204,6 +212,72 @@ Se bloquea mientras exista `config/.installed`. Para reinstalar: borrar ese arch
 - Ejecuta el SQL de `install.sql` filtrando las sentencias `SET` (NAMES, FOREIGN_KEY_CHECKS) para evitar errores de contexto
 - Genera `config/database.php` con `chmod 600`
 - Genera `.htaccess` con bloqueo de `/config/`, `install.php`, y archivos `.sql/.log/.md`
+
+---
+
+## Módulo Empleados (opcional, v1.4+)
+
+Activable desde `ajustes/empleados.php` → guarda `setConfig('modulo_empleados', true)`.
+
+- **`empleados/index.php`** — lista con toggle activo/inactivo
+- **`empleados/nuevo.php`** — crear/editar empleado (`?id=N` para editar)
+- **`empleados/retenciones.php`** — registro mensual de salario + IRPF retenido por empleado
+- **`empleados/modelo111.php`** — resumen trimestral para declaración Mod. 111
+
+Cuando el módulo está inactivo, el sidebar oculta la sección entera (`getConfig('modulo_empleados')`).
+
+---
+
+## Importación PDF de facturas de compra (v1.2+)
+
+`compras/importar_pdf.php` — endpoint AJAX POST que recibe un archivo PDF y devuelve JSON con datos extraídos.
+
+- Librería: `smalot/pdfparser` en `vendor/pdfparser/` (vendored, sin Composer)
+- Uso: `$parser->parseFile($tmpFile)->getText()` → texto plano
+- Extrae: NIF/CIF, número, fecha, base, IVA%, cuota IVA, total, nombre proveedor
+- Busca el proveedor en BD por NIF, luego por nombre LIKE
+- Responde JSON con campo `confianza` (alta/media/baja) por cada dato
+
+El formulario `compras/nueva.php` tiene un panel drag & drop que llama al endpoint y auto-rellena los campos.
+
+---
+
+## Sistema de Backup (v1.3+)
+
+- **Manual:** `ajustes/backup.php` → botón que llama `ajustes/backup_process.php` vía AJAX
+- **Automático:** Toggle en `ajustes/backup.php`, config key `backup_auto` (bool). Si activo, `backup_process.php` genera backup periódico
+- **Función central:** `generateSQLDump()` en `functions.php` — genera SQL completo incluyendo `INSERT IGNORE` de datos de empresa desde constantes PHP
+- **Almacenamiento:** `backups/backup_YYYYMMDD_HHiiss.sql` (rotación configurable)
+- **Protección:** Carpeta `backups/` bloqueada por `.htaccess`
+
+---
+
+## Auto-updater (v1.3+)
+
+- **Detección:** `includes/updater.php` → `checkForUpdates()` — consulta GitHub API una vez cada 24h
+- **Cache:** `getConfig('last_update_check')` guarda timestamp. Bypass: `?force_check=1` en updater.php
+- **UI:** `ajustes/updater.php` — muestra versión disponible, notas y botón de actualización
+- **Proceso:** `ajustes/update_process.php` — 5 pasos AJAX: `backup → download → prepare → install → finalize`
+- **ZIP:** GitHub genera automáticamente el zipball del tag. El paso `install` usa `rcopy_recursive()` respetando exclusiones (database.php, .htaccess, backups/, assets/logo.png…)
+- **Migraciones:** El paso `install` ejecuta automáticamente todos los `.sql` de `config/migrations/`
+- **Versión:** El paso `finalize` actualiza `APP_VERSION` en `config/database.php`
+
+---
+
+## Confirmaciones (bsConfirm, v1.5+)
+
+Ningún `confirm()` ni `alert()` del navegador. Todo usa `bsConfirm()` definida en `includes/footer.php`:
+
+```js
+// Directo
+bsConfirm('¿Eliminar?', () => { location.href = '/ruta/?id=1&accion=eliminar'; });
+
+// En enlaces (automático vía event delegation)
+<a href="/ruta/" data-confirm="¿Confirmar?">Acción</a>
+
+// En formularios (automático)
+<form method="post" data-confirm="¿Guardar?">
+```
 
 ---
 
