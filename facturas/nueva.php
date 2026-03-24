@@ -10,6 +10,12 @@ $clientes = getClientes();
 
 $isEdit  = (bool)$id;
 
+// ── Bloquear edición de facturas pagadas o canceladas ─────
+if ($isEdit && in_array($factura['estado'] ?? '', ['pagada', 'cancelada'])) {
+    flash('No se puede editar una factura ' . $factura['estado'] . '.', 'error');
+    redirect('/facturas/ver.php?id=' . $id);
+}
+
 // ── Procesar formulario ───────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db          = getDB();
@@ -92,6 +98,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ── Preview del próximo número (solo en creación) ─────────
+$previewNumero = null;
+if (!$isEdit) {
+    $pref    = getConfig('factura_prefijo', 'F');
+    $usaAnio = getConfig('factura_usa_anio', true);
+    $digitos = (int)getConfig('factura_digitos', 5);
+    $proximo = (int)getConfig('factura_proximo', 1);
+    $previewNumero = $pref . ($usaAnio ? date('Y') : '') . str_pad($proximo, $digitos, '0', STR_PAD_LEFT);
+}
+
 $pageTitle = $isEdit ? 'Editar factura ' . ($factura['numero'] ?? '') : 'Nueva factura';
 require_once __DIR__ . '/../includes/header.php';
 
@@ -100,7 +116,15 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
 ?>
 
 <div class="topbar">
-  <h1><i class="bi bi-receipt me-2"></i><?= $pageTitle ?></h1>
+  <div>
+    <h1><i class="bi bi-receipt me-2"></i><?= $pageTitle ?></h1>
+    <?php if ($previewNumero): ?>
+    <p class="mb-0 mt-1" style="font-size:.78rem;color:#6b7280;">
+      Se creará con el número
+      <strong style="color:var(--verde-a);font-family:monospace;font-size:.85rem;"><?= e($previewNumero) ?></strong>
+    </p>
+    <?php endif; ?>
+  </div>
   <a href="<?= $isEdit ? '/facturas/ver.php?id=' . $id : '/facturas/' ?>" class="btn btn-sm btn-outline-secondary">
     <i class="bi bi-arrow-left me-1"></i>Volver
   </a>

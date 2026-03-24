@@ -2,6 +2,12 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.6] - 2026-03-24
+
+### Fixed
+- **facturas/nueva.php — Bloqueo pagada/cancelada**: redirige a la vista de la factura con mensaje de error si se intenta editar una factura en estado `pagada` o `cancelada`; el bloqueo ocurre antes de cargar el formulario para evitar modificaciones accidentales.
+- **facturas/nueva.php — Preview de número**: muestra bajo el título el número que se asignará a la nueva factura (calculado sin consumir el contador), usando el mismo formato que `siguienteNumeroFactura()`.
+
 ## [1.5.5] - 2026-03-24
 
 ### Changed
