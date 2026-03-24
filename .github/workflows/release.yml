@@ -5,32 +5,43 @@ on:
     branches:
       - main
 
+# No ejecutar si el commit es el auto-bump del bot, ni si lleva [no-release]
 jobs:
   release:
     runs-on: ubuntu-latest
+    if: |
+      github.actor != 'github-actions[bot]' &&
+      !contains(github.event.head_commit.message, '[no-release]')
     permissions:
       contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-      - name: Leer versión
+      - name: Bump versión PATCH
         id: ver
-        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_OUTPUT"
-
-      - name: Comprobar si el tag ya existe
-        id: tag_check
         run: |
-          VERSION="${{ steps.ver.outputs.VERSION }}"
-          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "v${VERSION}"; then
-            echo "EXISTS=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "EXISTS=false" >> "$GITHUB_OUTPUT"
-          fi
+          CURRENT=$(cat VERSION)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+          PATCH=$((PATCH + 1))
+          NEW="${MAJOR}.${MINOR}.${PATCH}"
+          echo -n "$NEW" > VERSION
+          echo "VERSION=$NEW" >> "$GITHUB_OUTPUT"
+          echo "Versión: $CURRENT → $NEW"
+
+      - name: Commitear nueva versión
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "chore: bump version to ${{ steps.ver.outputs.VERSION }} [skip ci]"
+          git push origin main
 
       - name: Construir ZIP limpio
-        if: steps.tag_check.outputs.EXISTS == 'false'
         id: zip
         run: |
           VERSION="${{ steps.ver.outputs.VERSION }}"
@@ -61,7 +72,6 @@ jobs:
           echo "Archivos incluidos: $(unzip -l $ZIP | tail -1)"
 
       - name: Extraer notas del CHANGELOG
-        if: steps.tag_check.outputs.EXISTS == 'false'
         id: notes
         run: |
           VERSION="${{ steps.ver.outputs.VERSION }}"
@@ -75,8 +85,7 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Crear tag y Release en GitHub
-        if: steps.tag_check.outputs.EXISTS == 'false'
+      - name: Crear Release en GitHub
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ steps.ver.outputs.VERSION }}"

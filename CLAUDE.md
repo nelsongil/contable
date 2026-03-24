@@ -32,22 +32,23 @@ find . -name "*.php" -not -path "./vendor/*" | xargs -I{} php -l {}
 
 La versión de la aplicación vive **únicamente** en el archivo `/VERSION` en la raíz del proyecto (ej: `1.5.1`). **Nunca hardcodear el número de versión** en código PHP ni en otros archivos.
 
-**Regla obligatoria:** Cada cambio funcional requiere:
-1. Incrementar la versión PATCH en `/VERSION` (ej: `1.5.1` → `1.5.2`)
-2. Añadir entrada en `CHANGELOG.md` con fecha y descripción
-3. El auto-updater lo distribuirá a producción en el siguiente ciclo
+**El PATCH se incrementa automáticamente** en cada `git push` a `main` mediante el workflow `.github/workflows/release.yml`. El bot commitea el nuevo VERSION con `[skip ci]` y crea el Release + ZIP en GitHub.
+
+**Cuándo tocar VERSION manualmente:**
+- Subir MINOR o MAJOR → editar `/VERSION` antes del commit
+- Evitar release en un push concreto → añadir `[no-release]` al mensaje del commit
 
 ```bash
 # Ver versión actual
 cat VERSION
 
-# Cambiar versión (ejemplo: subir a 1.5.2)
-echo -n "1.5.2" > VERSION
+# Subir MINOR manualmente (ejemplo: 1.5.x → 1.6.0)
+echo -n "1.6.0" > VERSION
 ```
 
 - **MAJOR** (X.0.0): cambio arquitectural incompatible
 - **MINOR** (1.X.0): nueva funcionalidad backward-compatible
-- **PATCH** (1.5.X): corrección de bugs o mejoras menores
+- **PATCH** (1.5.X): se gestiona automáticamente por CI en cada push
 
 Todos los componentes leen de este archivo: `config/database.php`, `install.php`, `ajustes/update_process.php`, `tools/build_zip.php`.
 
