@@ -2,6 +2,13 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.5] - 2026-03-24
+
+### Changed
+- **facturas/nueva.php — IRPF**: eliminado el campo "Ret. IRPF %" del formulario y las filas de IRPF/Líquido de los totales; el backend sigue almacenando `pct_irpf=0` para mantener compatibilidad con la BD.
+- **facturas/nueva.php — Descuentos**: eliminado `min="0"` de los inputs de cantidad y precio (filas estáticas y dinámicas); ahora se pueden introducir valores negativos para aplicar descuentos como línea.
+- **facturas/nueva.php — Vencimiento automático**: al cambiar la fecha de facturación, la fecha de vencimiento se recalcula automáticamente a fecha+7 días; el valor por defecto en facturas nuevas cambia de +30 a +7 días.
+
 ## [1.5.4] - 2026-03-24
 
 ### Fixed

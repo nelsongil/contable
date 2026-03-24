@@ -96,7 +96,7 @@ $pageTitle = $isEdit ? 'Editar factura ' . ($factura['numero'] ?? '') : 'Nueva f
 require_once __DIR__ . '/../includes/header.php';
 
 $defaultFecha = $isEdit ? ($factura['fecha'] ?? date('Y-m-d')) : date('Y-m-d');
-$defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', strtotime('+30 days'));
+$defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', strtotime('+7 days'));
 ?>
 
 <div class="topbar">
@@ -170,25 +170,14 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
               <label for="fecha_vencimiento">Vencimiento</label>
             </div>
           </div>
-          <div class="col-6">
+          <div class="col-12">
             <label class="form-label">IVA %</label>
             <select name="pct_iva" class="form-select" id="pctIva">
-              <?php 
+              <?php
                 $defIva = (int)getConfig('empresa_iva_def', 21);
-                foreach ([21, 10, 4, 0] as $t): 
+                foreach ([21, 10, 4, 0] as $t):
               ?>
               <option value="<?= $t ?>" <?= ($factura['porcentaje_iva'] ?? $defIva) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-          <div class="col-6">
-            <label class="form-label">Ret. IRPF %</label>
-            <select name="pct_irpf" class="form-select" id="pctIrpf">
-              <?php 
-                $defIrpf = (int)getConfig('empresa_irpf_def', 15);
-                foreach ([0, 7, 15, 19] as $t): 
-              ?>
-              <option value="<?= $t ?>" <?= ($factura['porcentaje_irpf'] ?? $defIrpf) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -236,9 +225,9 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
             ];
             foreach ($lineasInit as $i => $l): ?>
             <tr class="linea-row">
-              <td><input type="number" name="cantidad[]" class="linea-cant" value="<?= e($l['cantidad']) ?>" min="0" step="0.001" placeholder="1"></td>
+              <td><input type="number" name="cantidad[]" class="linea-cant" value="<?= e($l['cantidad']) ?>" step="0.001" placeholder="1"></td>
               <td><input type="text"   name="descripcion[]" class="linea-desc" value="<?= e($l['descripcion']) ?>" placeholder="Descripción del servicio o producto"></td>
-              <td><input type="number" name="precio[]" class="linea-precio text-end" value="<?= $l['precio'] ? moneyInput($l['precio']) : '' ?>" min="0" step="0.0001" placeholder="0.00"></td>
+              <td><input type="number" name="precio[]" class="linea-precio text-end" value="<?= $l['precio'] ? moneyInput($l['precio']) : '' ?>" step="0.0001" placeholder="0.00"></td>
               <td class="text-end fw-semibold linea-total"><?= $l['total'] ? money($l['total']) : '—' ?></td>
               <td><button type="button" class="btn btn-sm btn-remove btn-outline-danger"><i class="bi bi-x"></i></button></td>
             </tr>
@@ -253,9 +242,7 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
             <table class="table table-sm mb-0 text-end">
               <tr><td class="text-muted">Base imponible</td><td class="fw-semibold" id="resBase">0,00 €</td></tr>
               <tr><td class="text-muted" id="labelIva">IVA (21%)</td><td id="resIva">0,00 €</td></tr>
-              <tr id="rowIrpf" style="display:none"><td class="text-muted text-danger" id="labelIrpf">Ret. IRPF (0%)</td><td class="text-danger" id="resIrpf">0,00 €</td></tr>
               <tr class="fw-bold fs-5"><td>TOTAL</td><td id="resTotal">0,00 €</td></tr>
-              <tr id="rowLiquido" style="display:none"><td class="text-muted small">Líquido a cobrar</td><td class="small" id="resLiquido">0,00 €</td></tr>
             </table>
           </div>
         </div>
@@ -314,30 +301,30 @@ document.addEventListener('DOMContentLoaded', function() {
             const cant  = parseFloat(row.querySelector('.linea-cant').value)   || 0;
             const precio= parseFloat(row.querySelector('.linea-precio').value) || 0;
             const total = Math.round(cant * precio * 100) / 100;
-            row.querySelector('.linea-total').textContent = total ? fmt(total) : '—';
+            row.querySelector('.linea-total').textContent = total !== 0 ? fmt(total) : '—';
             base += total;
         });
-        const pctIva  = parseFloat(document.getElementById('pctIva').value)  || 0;
-        const pctIrpf = parseFloat(document.getElementById('pctIrpf').value) || 0;
-        const iva     = Math.round(base * pctIva  / 100 * 100) / 100;
-        const irpf    = Math.round(base * pctIrpf / 100 * 100) / 100;
-        const total   = base + iva;
-        const liquido = total - irpf;
+        const pctIva = parseFloat(document.getElementById('pctIva').value) || 0;
+        const iva    = Math.round(base * pctIva / 100 * 100) / 100;
+        const total  = base + iva;
 
-        document.getElementById('resBase').textContent    = fmt(base);
-        document.getElementById('resIva').textContent     = fmt(iva);
-        document.getElementById('resIrpf').textContent    = '-' + fmt(irpf);
-        document.getElementById('resTotal').textContent   = fmt(total);
-        document.getElementById('resLiquido').textContent = fmt(liquido);
-        document.getElementById('labelIva').textContent   = 'IVA (' + pctIva + '%)';
-        document.getElementById('labelIrpf').textContent  = 'Ret. IRPF (' + pctIrpf + '%)';
-        document.getElementById('rowIrpf').style.display   = pctIrpf > 0 ? '' : 'none';
-        document.getElementById('rowLiquido').style.display = pctIrpf > 0 ? '' : 'none';
+        document.getElementById('resBase').textContent  = fmt(base);
+        document.getElementById('resIva').textContent   = fmt(iva);
+        document.getElementById('resTotal').textContent = fmt(total);
+        document.getElementById('labelIva').textContent = 'IVA (' + pctIva + '%)';
     }
 
     document.getElementById('tablaLineas').addEventListener('input', recalc);
-    document.getElementById('pctIva').addEventListener('change',  recalc);
-    document.getElementById('pctIrpf').addEventListener('change', recalc);
+    document.getElementById('pctIva').addEventListener('change', recalc);
+
+    // ── Vencimiento automático: fecha + 7 días ────────────
+    document.getElementById('fecha').addEventListener('change', function() {
+        const d = new Date(this.value);
+        if (isNaN(d)) return;
+        d.setDate(d.getDate() + 7);
+        const iso = d.toISOString().slice(0, 10);
+        document.getElementById('fecha_vencimiento').value = iso;
+    });
 
     // ── Añadir línea ──────────────────────────────────────
     document.getElementById('btnAddLinea').addEventListener('click', function() {
@@ -345,9 +332,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const tr    = document.createElement('tr');
         tr.className = 'linea-row';
         tr.innerHTML = `
-            <td><input type="number" name="cantidad[]"     class="linea-cant"   value="1" min="0" step="0.001"></td>
-            <td><input type="text"   name="descripcion[]"  class="linea-desc"   placeholder="Descripción"></td>
-            <td><input type="number" name="precio[]"       class="linea-precio text-end" min="0" step="0.0001" placeholder="0.00"></td>
+            <td><input type="number" name="cantidad[]"    class="linea-cant"              value="1" step="0.001"></td>
+            <td><input type="text"   name="descripcion[]" class="linea-desc"              placeholder="Descripción"></td>
+            <td><input type="number" name="precio[]"      class="linea-precio text-end"   step="0.0001" placeholder="0.00"></td>
             <td class="text-end fw-semibold linea-total">—</td>
             <td><button type="button" class="btn btn-sm btn-remove btn-outline-danger"><i class="bi bi-x"></i></button></td>
         `;
