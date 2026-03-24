@@ -35,6 +35,10 @@ $irpfEstimado = max(0, $rendimiento * $irpfPct);
 
 $trims = [];
 for ($t = 1; $t <= 4; $t++) $trims[$t] = resumenTrimestral($anio, $t);
+
+// Últimas 5 facturas emitidas
+$ul = $db->query("SELECT id, numero, cliente_nombre, total, estado FROM facturas_emitidas ORDER BY fecha DESC, id DESC LIMIT 5");
+$ultimas = $ul->fetchAll();
 ?>
 
 <div class="topbar fade-in-up">
