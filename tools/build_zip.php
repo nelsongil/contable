@@ -4,12 +4,9 @@
  * Excluye archivos locales, temporales y sensibles.
  */
 
-// Intentar obtener la versión desde install.php
-$installContent = file_get_contents(__DIR__ . '/../install.php');
-$version = '1.0';
-if (preg_match("/define\('APP_VERSION',\s*'([^']+)'\)/", $installContent, $m)) {
-    $version = $m[1];
-}
+// Leer versión desde el archivo VERSION (fuente única de verdad)
+$versionFile = __DIR__ . '/../VERSION';
+$version = file_exists($versionFile) ? trim(file_get_contents($versionFile)) : '1.5.1';
 
 $zipName = "contable_v{$version}.zip";
 $sourceDir = realpath(__DIR__ . '/../');

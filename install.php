@@ -7,7 +7,7 @@
  * ============================================================
  */
 
-define('APP_VERSION', '1.2');
+define('APP_VERSION', file_exists(__DIR__ . '/VERSION') ? trim(file_get_contents(__DIR__ . '/VERSION')) : '1.5.1');
 define('CONFIG_FILE', __DIR__ . '/config/database.php');
 define('LOCK_FILE',   __DIR__ . '/config/.installed');
 define('SQL_FILE',    __DIR__ . '/config/install.sql');
@@ -176,6 +176,8 @@ function generateConfig(array $d, string $secret): string {
 <?php
 // ── Generado automáticamente por el instalador · NO EDITAR A MANO ──
 // Instalado: {$_SERVER['SERVER_NAME']} · {$d['db_host']}
+
+define('APP_VERSION', file_exists(__DIR__ . '/../VERSION') ? trim(file_get_contents(__DIR__ . '/../VERSION')) : '1.5.1');
 
 define('DB_HOST',    '$host');
 define('DB_NAME',    '$name');

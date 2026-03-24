@@ -174,15 +174,20 @@ switch ($step) {
                 exit;
             }
             
-            $newVerTag = $updateData['version']; // ej: v1.3
+            $newVerTag = $updateData['version']; // ej: v1.5.1
             $newVerNum = ltrim($newVerTag, 'v');
 
-            // Actualizar APP_VERSION en config/database.php
+            // Fuente única de verdad: escribir /VERSION
+            file_put_contents(__DIR__ . '/../VERSION', $newVerNum);
+
+            // Compatibilidad retroactiva: actualizar define en config/database.php si tiene APP_VERSION hardcodeada
             $dbConfig = __DIR__ . '/../config/database.php';
             if (file_exists($dbConfig)) {
                 $content = file_get_contents($dbConfig);
-                $content = preg_replace("/define\('APP_VERSION',\s*'[^']+'\)/", "define('APP_VERSION', '$newVerNum')", $content);
-                file_put_contents($dbConfig, $content);
+                $updated = preg_replace("/define\('APP_VERSION',\s*'[^']+'\)/", "define('APP_VERSION', '$newVerNum')", $content);
+                if ($updated !== $content) {
+                    file_put_contents($dbConfig, $updated);
+                }
             }
 
             // Limpiar temporales

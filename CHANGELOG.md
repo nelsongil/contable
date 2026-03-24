@@ -2,6 +2,21 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.1] - 2026-03-24
+
+### Added
+- **Archivo VERSION**: fuente única de verdad para la versión. Todos los componentes leen de `/VERSION` en lugar de tener el número hardcodeado.
+
+### Fixed
+- **Auto-updater (finalize)**: escribe la nueva versión en `/VERSION` (antes solo hacía preg_replace en `config/database.php`, que fallaba en instalaciones frescas).
+- **install.php**: el instalador leía la versión de una constante fija `'1.2'`; ahora lee `/VERSION`.
+- **tools/build_zip.php**: leía la versión de `install.php` (obteniendo `1.2`); ahora lee `/VERSION`.
+- **Dashboard**: panel "Últimas facturas" vacío por variable `$ultimas` sin definir.
+- **Importación PDF compras**: campo "Concepto" nunca detectado — añadidos patrones `Concepto:`, `Descripción:`, `Objeto:`, etc.
+- **Importación PDF compras**: botón "Confirmar y guardar" mostraba siempre error porque JS comprobaba `resp.redirected` en lugar del JSON `{ok:true}` devuelto por PHP.
+- **Responsive**: añadido `<meta name="viewport">` ausente en todo el proyecto.
+- **Responsive**: sidebar colapsable con hamburguesa en móvil, scroll horizontal en tablas, inputs 16px (anti-zoom iOS), botones táctiles 44px, modal PDF fullscreen en móvil.
+
 ## [1.5] - 2026-03-06
 
 ### Changed

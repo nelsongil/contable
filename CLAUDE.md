@@ -28,6 +28,29 @@ find . -name "*.php" -not -path "./vendor/*" | xargs -I{} php -l {}
 
 **No existe suite de tests automatizados.** La validación se hace manualmente desde el navegador o mediante las comprobaciones integradas del instalador.
 
+## Crítico: Versionado
+
+La versión de la aplicación vive **únicamente** en el archivo `/VERSION` en la raíz del proyecto (ej: `1.5.1`). **Nunca hardcodear el número de versión** en código PHP ni en otros archivos.
+
+**Regla obligatoria:** Cada cambio funcional requiere:
+1. Incrementar la versión PATCH en `/VERSION` (ej: `1.5.1` → `1.5.2`)
+2. Añadir entrada en `CHANGELOG.md` con fecha y descripción
+3. El auto-updater lo distribuirá a producción en el siguiente ciclo
+
+```bash
+# Ver versión actual
+cat VERSION
+
+# Cambiar versión (ejemplo: subir a 1.5.2)
+echo -n "1.5.2" > VERSION
+```
+
+- **MAJOR** (X.0.0): cambio arquitectural incompatible
+- **MINOR** (1.X.0): nueva funcionalidad backward-compatible
+- **PATCH** (1.5.X): corrección de bugs o mejoras menores
+
+Todos los componentes leen de este archivo: `config/database.php`, `install.php`, `ajustes/update_process.php`, `tools/build_zip.php`.
+
 ## Crítico: Codificación de Archivos
 
 **TODOS los archivos DEBEN estar en UTF-8 sin BOM.** Es un requisito estricto — varios commits han sido dedicados a corregir regresiones de codificación. Nunca guardar como UTF-16 (evitar el Bloc de notas de Windows). Verificar siempre con `file -i NOMBRE_ARCHIVO` → debe mostrar `charset=utf-8`.
