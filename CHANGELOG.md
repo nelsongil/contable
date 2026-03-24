@@ -2,6 +2,14 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.4] - 2026-03-24
+
+### Fixed
+- **install.php — Parser SQL**: eliminados comentarios `--` del SQL antes de dividir por `;`; el bug hacía que cada `CREATE TABLE` precedido de un comentario fuera descartado entero, dejando la base de datos sin tablas.
+- **install.sql**: añadida tabla `configuracion` con valores por defecto (`empresa_irpf`, `last_update_check`, `factura_prefijo`, `factura_ceros`).
+- **header.php**: `checkForUpdates()` envuelto en `try/catch` para evitar pantalla en blanco si el updater lanza cualquier excepción.
+- **updater.php**: comprobación de `function_exists('curl_init')` antes de usar cURL; evita error fatal en hostings sin la extensión habilitada.
+
 ## [1.5.3] - 2026-03-24
 
 ### Security

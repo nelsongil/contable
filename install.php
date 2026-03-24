@@ -165,15 +165,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // 2. Crear tablas (seleccionar BD primero, luego ejecutar SQL)
             $pdo->exec("USE `{$d['db_name']}`");
             $sql = file_get_contents(SQL_FILE);
-            // Ejecutar sentencias una a una, ignorando comentarios y sentencias SET
+            // Eliminar comentarios de línea (-- ...) antes de parsear
+            $sql = preg_replace('/--[^\n]*/', '', $sql);
+            // Ejecutar sentencias una a una, saltando SET y vacías
             foreach (array_filter(array_map('trim', explode(';', $sql))) as $stmt) {
-                // Saltar líneas vacías, comentarios SQL y sentencias SET (NAMES, FOREIGN_KEY_CHECKS, etc.)
-                if (!$stmt
-                    || preg_match('/^--/', $stmt)
-                    || preg_match('/^\s*SET\s+/i', $stmt)
-                ) {
-                    continue;
-                }
+                if (!$stmt || preg_match('/^\s*SET\s+/i', $stmt)) continue;
                 try { $pdo->exec($stmt); } catch (PDOException $e) { /* Ignorar si ya existe */ }
             }
 

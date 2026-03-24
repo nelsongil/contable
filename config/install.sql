@@ -102,4 +102,18 @@ CREATE TABLE IF NOT EXISTS numeracion (
 -- Insertar año actual
 INSERT IGNORE INTO numeracion (anio, ultimo) VALUES (YEAR(CURDATE()), 0);
 
+-- ─── Configuración de la aplicación ─────────────────────────
+CREATE TABLE IF NOT EXISTS configuracion (
+    clave       VARCHAR(80) NOT NULL PRIMARY KEY,
+    valor       TEXT,
+    actualizado TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Valores por defecto
+INSERT IGNORE INTO configuracion (clave, valor) VALUES
+    ('empresa_irpf',          '15'),
+    ('last_update_check',     '0'),
+    ('factura_prefijo',       'F'),
+    ('factura_ceros',         '4');
+
 SET FOREIGN_KEY_CHECKS = 1;

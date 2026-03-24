@@ -4,7 +4,7 @@ require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/updater.php';
 
 // Comprobar actualizaciones
-checkForUpdates();
+try { checkForUpdates(); } catch (Throwable $e) { /* No bloquear la carga si el updater falla */ }
 
 // Manejar descarte de notificación
 if (isset($_GET['dismiss_update'])) {

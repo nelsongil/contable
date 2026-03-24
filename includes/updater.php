@@ -21,6 +21,8 @@ function checkForUpdates() {
         return;
     }
 
+    if (!function_exists('curl_init')) return;
+
     $repo = 'nelsongil/contable';
     $url  = "https://api.github.com/repos/$repo/releases/latest";
 
