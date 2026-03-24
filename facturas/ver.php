@@ -23,6 +23,7 @@ if ($pdf) {
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Factura <?= e($factura['numero']) ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
@@ -90,6 +91,18 @@ body {
 
 /* Print-only Volver */
 .no-print { position: fixed; top: 20px; right: 20px; display: flex; gap: 8px; z-index: 1000; }
+
+/* ── Responsive para previsualización en móvil ── */
+@media (max-width: 600px) {
+  .invoice { margin: 10px; padding: 10px; }
+  .inv-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .inv-title-area { text-align: left; }
+  .footer-cols { grid-template-columns: 1fr; gap: 20px; }
+  .totals-wrap { justify-content: stretch; }
+  .totals { width: 100%; }
+  .no-print { position: relative; top: auto; right: auto; padding: 10px; flex-wrap: wrap; gap: 6px; }
+  .lines-table { font-size: 9pt; }
+}
 .btn-print { background: #1A2E2A; color: #fff; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: Inter; font-size: 13px; font-weight: 600; }
 .btn-back  { background: #fff; color: #1A2E2A; border: 2px solid #1A2E2A; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: Inter; font-size: 13px; font-weight: 600; text-decoration: none; }
 </style>
@@ -316,7 +329,7 @@ require_once __DIR__ . '/../includes/header.php';
 
 <!-- ═══ MODAL PDF ═══ -->
 <div class="modal fade" id="pdfModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered" style="height: 90vh;">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-fullscreen-md-down" style="height: 90vh;">
     <div class="modal-content h-100">
       <div class="modal-header bg-verde text-white py-2">
         <h5 class="modal-title" style="font-size: 1.1rem"><i class="bi bi-file-earmark-pdf me-2"></i>Vista previa de Factura</h5>

@@ -110,6 +110,22 @@ function showWarning() {
 });
 resetInactivity();
 
+// ─── Sidebar móvil ───
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('sidebar-open');
+    document.getElementById('sidebarBackdrop').classList.toggle('show');
+}
+function closeSidebar() {
+    document.querySelector('.sidebar').classList.remove('sidebar-open');
+    document.getElementById('sidebarBackdrop').classList.remove('show');
+}
+// Cerrar sidebar al navegar en móvil
+document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
+    link.addEventListener('click', function() {
+        if (window.innerWidth < 768) closeSidebar();
+    });
+});
+
 // ─── Utilidades de Tablas ───
 function filterTable(inputId, tableId) {
     const input = document.getElementById(inputId);

@@ -17,6 +17,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="Libro Contable — <?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?>">
 <meta name="theme-color" content="#1A2E2A">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -172,6 +173,50 @@ body { font-family: 'Inter', sans-serif; background: var(--bg); color: #1a1a1a; 
   background: #fff3cd; border-bottom: 1px solid #ffeeba; color: #856404;
   padding: 0.75rem 1.25rem; display: none; align-items: center; justify-content: space-between;
 }
+
+/* ── Hamburger toggle (oculto en desktop) ── */
+#sidebarToggle {
+  display: none; position: fixed; top: .75rem; left: .75rem; z-index: 1060;
+  background: var(--verde); color: #fff; border: none; border-radius: 8px;
+  width: 40px; height: 40px; align-items: center; justify-content: center;
+  font-size: 1.3rem; box-shadow: 0 2px 8px rgba(0,0,0,.3); cursor: pointer;
+  transition: background .15s;
+}
+#sidebarToggle:hover { background: var(--verde-m); }
+
+/* ── Backdrop para sidebar móvil ── */
+#sidebarBackdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 1039;
+}
+#sidebarBackdrop.show { display: block; }
+
+/* ── Responsive ── */
+@media (max-width: 767.98px) {
+  #sidebarToggle { display: flex; }
+  .sidebar {
+    left: calc(-1 * var(--sidebar));
+    transition: left .3s ease;
+    z-index: 1040;
+  }
+  .sidebar.sidebar-open { left: 0; }
+  .main { margin-left: 0 !important; padding: 1rem; padding-top: 3.5rem; }
+  #session-warning { left: 0; }
+  .topbar { flex-wrap: wrap; gap: .5rem; }
+  .topbar h1 { font-size: 1.05rem; }
+  .topbar > div:last-child { width: 100%; }
+  .topbar .form-control-sm { width: auto !important; flex: 1 1 100px; min-width: 80px; }
+  .topbar .form-select-sm  { width: auto !important; flex: 0 0 80px; }
+  /* Tablas: scroll horizontal en móvil */
+  .card-body.p-0 { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .kpi .value { font-size: 1.3rem; }
+  /* Ocultar columnas no críticas en móvil */
+  .d-none-mobile { display: none !important; }
+  /* P3 — 16px en inputs evita zoom automático en iOS */
+  .form-control, .form-select { font-size: 16px; }
+  /* P3 — Botones táctiles con área mínima de 44px */
+  .btn:not(.btn-sm) { min-height: 44px; }
+}
 </style>
 <?php
 // ─── Contador de Notificaciones (Borradores) ───
@@ -181,7 +226,15 @@ $cntBorradores = (int)getDB()->query("SELECT COUNT(*) FROM facturas_emitidas WHE
 </head>
 <body>
 
-<?php 
+<!-- Sidebar backdrop (móvil) -->
+<div id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+<!-- Botón hamburguesa (móvil) -->
+<button id="sidebarToggle" onclick="toggleSidebar()" aria-label="Abrir menú">
+  <i class="bi bi-list"></i>
+</button>
+
+<?php
 // Banner de actualización
 $update = $_SESSION['update_available'] ?? null;
 $dismissed = $_SESSION['update_dismissed_version'] ?? '';
