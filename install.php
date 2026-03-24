@@ -289,6 +289,10 @@ PHP;
 function generateHtaccess(): void {
     $htaccess = <<<HTACCESS
 # ── Generado por el instalador ──────────────────────────────
+
+# Páginas de error personalizadas
+ErrorDocument 404 /404.php
+
 Options -Indexes
 ServerSignature Off
 
