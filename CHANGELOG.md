@@ -2,6 +2,25 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.3] - 2026-03-24
+
+### Security
+- **install.php — CSRF**: añadida protección con token CSRF en los pasos 1-4 del instalador; cada formulario incluye un token de sesión verificado server-side con `hash_equals()`.
+- **install.php — Auto-destrucción**: al completar la instalación, paso 5 se renderiza directamente (sin redirect) y `register_shutdown_function` renombra `install.php` a `install.php.installed` después de enviar la página — protege en servidores sin `mod_rewrite` donde el `.htaccess` no surtiría efecto. Bonus: la página de éxito detallada (checklist) ahora sí se muestra, ya que antes el lock file la bloqueaba antes de renderizarse.
+- **install.php — IBAN**: validación de formato completo (`/^[A-Z]{2}[0-9]{2}[A-Z0-9]{4,30}$/`) con normalización de espacios; reemplaza la anterior comprobación de solo longitud.
+
+## [1.5.2] - 2026-03-24
+
+### Fixed
+- **build_zip.php**: reemplazado patrón obsoleto `/\.antigravity/` (que nunca matcheaba) por `/\.claude\//`; añadidas exclusiones de `backups/`, `.htaccess`, `.well-known/`, `Thumbs.db` y todos los `.md` de la raíz.
+- **install.php**: el mensaje de error de conexión a BD ya no expone detalles internos del driver PDO (host, usuario, password).
+- **install.php**: validación de `db_host` vacío ahora genera error (antes solo se validaba `db_name` y `db_user`).
+- **install.php**: añadida validación server-side de NIF/CIF/NIE con regex (`/^[A-Z0-9][0-9]{7}[A-Z0-9]$/i`).
+- **install.php**: añadida validación server-side de email con `filter_var(..., FILTER_VALIDATE_EMAIL)`.
+- **install.php**: `admin_user` validado contra patrón alfanumérico seguro (`[a-zA-Z0-9_.\-]{3,80}`).
+- **install.php**: contraseña requiere ahora al menos una letra Y un número (server-side), no solo longitud mínima.
+- **install.php**: añadidos atributos `maxlength` en todos los campos del formulario (150 chars para nombres, 9 para CIF, 34 para IBAN, etc.).
+
 ## [1.5.1] - 2026-03-24
 
 ### Added

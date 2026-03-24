@@ -27,15 +27,26 @@ $it = new RecursiveDirectoryIterator($sourceDir, RecursiveDirectoryIterator::SKI
 $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::LEAVES_ONLY);
 
 $excludedPatterns = [
+    // Credenciales y estado de instalación
     '/config\/database\.php$/',
     '/config\/\.installed$/',
-    '/\.git/',
-    '/\.antigravity/',
+    // Control de versiones y herramientas de desarrollo
+    '/\.git\//',
+    '/\.claude\//',          // Configuración local Claude Code (skills, settings)
     '/tools\//',
+    // Documentación interna (no para usuarios finales)
+    '/^[^\/]+\.md$/',        // .md en raíz: CLAUDE.md, AGENTS.md, CONVENTIONS.md, etc.
+    // Archivos generados por el instalador (se crean durante la instalación)
+    '/\.htaccess$/',
+    // Carpetas del servidor del desarrollador
+    '/\.well-known\//',
+    '/backups\//',
+    // Temporales y sistema
     '/\.zip$/',
     '/error_log$/',
     '/\.gitignore$/',
     '/\.DS_Store$/',
+    '/Thumbs\.db$/',
 ];
 
 $count = 0;

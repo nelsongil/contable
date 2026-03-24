@@ -12,12 +12,18 @@ define('CONFIG_FILE', __DIR__ . '/config/database.php');
 define('LOCK_FILE',   __DIR__ . '/config/.installed');
 define('SQL_FILE',    __DIR__ . '/config/install.sql');
 
+session_start();
+
 // ── Si ya está instalado, bloquear ────────────────────────
 if (file_exists(LOCK_FILE)) {
     die(renderBlocked());
 }
 
-session_start();
+// Generar token CSRF si no existe
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 $step   = (int)($_GET['step'] ?? 1);
 $errors = [];
 $data   = $_SESSION['install_data'] ?? [];
@@ -32,6 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($step === 2) {
+        // Verificar CSRF
+        if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+            $errors[] = 'Token de seguridad inválido. Recarga la página e inténtalo de nuevo.';
+        } else {
         // Datos de BD
         $d = [
             'db_host'  => trim($_POST['db_host']  ?? 'localhost'),
@@ -40,8 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'db_pass'  => $_POST['db_pass'] ?? '',
         ];
         // Validar conexión
-        if (!$d['db_name'] || !$d['db_user']) {
-            $errors[] = 'El nombre de BD y el usuario son obligatorios.';
+        if (!$d['db_host'] || !$d['db_name'] || !$d['db_user']) {
+            $errors[] = 'El servidor, nombre de BD y usuario son obligatorios.';
         } else {
             try {
                 $pdo = new PDO(
@@ -53,12 +63,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['install_pdo_ok'] = true;
                 header('Location: ?step=3'); exit;
             } catch (PDOException $e) {
-                $errors[] = 'No se pudo conectar a MySQL: ' . $e->getMessage();
+                // No exponer detalles internos del driver (pueden incluir credenciales)
+                $errors[] = 'No se pudo conectar a la base de datos. Verifica el servidor, usuario y contraseña.';
             }
         }
+        } // end csrf else
     }
 
     if ($step === 3) {
+        // Verificar CSRF
+        if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+            $errors[] = 'Token de seguridad inválido. Recarga la página e inténtalo de nuevo.';
+        } else {
         // Datos de empresa + admin
         $d = [
             'empresa_nombre'   => trim($_POST['empresa_nombre']   ?? ''),
@@ -75,17 +91,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'admin_pass'       => $_POST['admin_pass'] ?? '',
             'admin_pass2'      => $_POST['admin_pass2'] ?? '',
         ];
+        // Longitud máxima
+        if (strlen($d['empresa_nombre'])   > 150) $d['empresa_nombre']   = substr($d['empresa_nombre'], 0, 150);
+        if (strlen($d['empresa_sociedad']) > 150) $d['empresa_sociedad'] = substr($d['empresa_sociedad'], 0, 150);
+        if (strlen($d['empresa_dir1'])     > 200) $d['empresa_dir1']     = substr($d['empresa_dir1'], 0, 200);
+        if (strlen($d['empresa_dir2'])     > 200) $d['empresa_dir2']     = substr($d['empresa_dir2'], 0, 200);
+        if (strlen($d['empresa_tel'])      > 30)  $d['empresa_tel']      = substr($d['empresa_tel'], 0, 30);
+        if (strlen($d['empresa_web'])      > 150) $d['empresa_web']      = substr($d['empresa_web'], 0, 150);
+        if (strlen($d['empresa_banco'])    > 100) $d['empresa_banco']    = substr($d['empresa_banco'], 0, 100);
+
+        // Nombre obligatorio
         if (!$d['empresa_nombre']) $errors[] = 'El nombre es obligatorio.';
-        if (!$d['admin_user'])     $errors[] = 'El usuario administrador es obligatorio.';
-        if (strlen($d['admin_pass']) < 8) $errors[] = 'La contraseña debe tener al menos 8 caracteres.';
+
+        // CIF/NIF/NIE español: letra o dígito + 7 dígitos + letra o dígito (9 chars)
+        if ($d['empresa_cif'] && !preg_match('/^[A-Z0-9][0-9]{7}[A-Z0-9]$/i', $d['empresa_cif'])) {
+            $errors[] = 'El NIF/CIF no tiene un formato válido (ej: 04310609H o B12345678).';
+        }
+
+        // Email (si se proporciona)
+        if ($d['empresa_email'] && !filter_var($d['empresa_email'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'El email no tiene un formato válido.';
+        }
+        if (strlen($d['empresa_email']) > 150) $errors[] = 'El email es demasiado largo.';
+
+        // IBAN: formato básico (2 letras país + 2 dígitos control + hasta 30 alfanuméricos, sin espacios)
+        if ($d['empresa_iban']) {
+            $iban_clean = strtoupper(preg_replace('/\s+/', '', $d['empresa_iban']));
+            if (!preg_match('/^[A-Z]{2}[0-9]{2}[A-Z0-9]{4,30}$/', $iban_clean)) {
+                $errors[] = 'El IBAN no tiene un formato válido (ej: ES63 2103 3032 55 0030024960).';
+            } elseif (strlen($iban_clean) > 34) {
+                $errors[] = 'El IBAN no puede superar 34 caracteres.';
+            }
+        }
+
+        // Usuario administrador: solo alfanumérico, guiones y puntos, 3-80 chars
+        if (!$d['admin_user']) {
+            $errors[] = 'El usuario administrador es obligatorio.';
+        } elseif (!preg_match('/^[a-zA-Z0-9_.\-]{3,80}$/', $d['admin_user'])) {
+            $errors[] = 'El usuario solo puede contener letras, números, guiones bajos, guiones y puntos (3–80 caracteres).';
+        }
+
+        // Contraseña: mínimo 8 chars, al menos una letra y un número
+        if (strlen($d['admin_pass']) < 8) {
+            $errors[] = 'La contraseña debe tener al menos 8 caracteres.';
+        } elseif (!preg_match('/[A-Za-z]/', $d['admin_pass']) || !preg_match('/[0-9]/', $d['admin_pass'])) {
+            $errors[] = 'La contraseña debe contener al menos una letra y un número.';
+        }
         if ($d['admin_pass'] !== $d['admin_pass2']) $errors[] = 'Las contraseñas no coinciden.';
         if (!$errors) {
             $_SESSION['install_data'] = array_merge($data, $d);
             header('Location: ?step=4'); exit;
         }
+        } // end csrf else
     }
 
     if ($step === 4) {
+        // Verificar CSRF
+        if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+            $errors[] = 'Token de seguridad inválido. Recarga la página e inténtalo de nuevo.';
+        } else {
         // INSTALAR
         $d = $_SESSION['install_data'];
         try {
@@ -142,16 +206,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // 8. Crear archivo de lock
             file_put_contents(LOCK_FILE, date('Y-m-d H:i:s') . "\nInstalled by: " . $d['admin_user']);
-            chmod(LOCK_FILE, 0600);
+            @chmod(LOCK_FILE, 0600);
 
-            // 9. Limpiar sesión
-            session_destroy();
+            // 9. Limpiar sesión de datos sensibles (BD pass, etc.)
+            $_SESSION = [];
 
-            header('Location: ?step=5'); exit;
+            // 10. Registrar auto-destrucción al terminar esta petición.
+            //     El rename ocurre DESPUÉS de enviar la respuesta HTTP, así el usuario
+            //     ve el paso 5 (renderizado inline) antes de que el archivo desaparezca.
+            $installFile = __FILE__;
+            register_shutdown_function(function() use ($installFile) {
+                @rename($installFile, $installFile . '.installed');
+            });
+
+            // 11. Renderizar paso 5 directamente (sin redirect) para que el shutdown
+            //     pueda renombrar install.php después de enviar la página al navegador.
+            $step = 5;
 
         } catch (Exception $e) {
             $errors[] = 'Error durante la instalación: ' . $e->getMessage();
         }
+        } // end csrf else
     }
 }
 
@@ -487,6 +562,7 @@ input.error { border-color: #ef4444; }
 
   <?php if ($allOk): ?>
   <form method="post">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <button type="submit" class="btn-next" style="margin-top:1.5rem">
       Continuar → Base de datos
     </button>
@@ -523,6 +599,7 @@ input.error { border-color: #ef4444; }
         <input type="password" name="db_pass" value="" placeholder="••••••••" autocomplete="off">
       </div>
     </div>
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <button type="submit" class="btn-next">Verificar conexión →</button>
   </form>
 
@@ -536,49 +613,49 @@ input.error { border-color: #ef4444; }
     <div class="field-row">
       <div class="field">
         <label>Tu nombre completo *</label>
-        <input type="text" name="empresa_nombre" required value="<?= htmlspecialchars($data['empresa_nombre'] ?? '') ?>" placeholder="Nelson Ariel Gil">
+        <input type="text" name="empresa_nombre" required maxlength="150" value="<?= htmlspecialchars($data['empresa_nombre'] ?? '') ?>" placeholder="Nelson Ariel Gil">
       </div>
       <div class="field">
         <label>Nombre comercial / Sociedad</label>
-        <input type="text" name="empresa_sociedad" value="<?= htmlspecialchars($data['empresa_sociedad'] ?? '') ?>" placeholder="Sinergia">
+        <input type="text" name="empresa_sociedad" maxlength="150" value="<?= htmlspecialchars($data['empresa_sociedad'] ?? '') ?>" placeholder="Sinergia">
       </div>
     </div>
     <div class="field-row">
       <div class="field">
         <label>CIF / NIF</label>
-        <input type="text" name="empresa_cif" value="<?= htmlspecialchars($data['empresa_cif'] ?? '') ?>" placeholder="04310609H">
+        <input type="text" name="empresa_cif" maxlength="9" value="<?= htmlspecialchars($data['empresa_cif'] ?? '') ?>" placeholder="04310609H">
       </div>
       <div class="field">
         <label>Teléfono</label>
-        <input type="text" name="empresa_tel" value="<?= htmlspecialchars($data['empresa_tel'] ?? '') ?>" placeholder="628 68 36 64">
+        <input type="text" name="empresa_tel" maxlength="30" value="<?= htmlspecialchars($data['empresa_tel'] ?? '') ?>" placeholder="628 68 36 64">
       </div>
     </div>
     <div class="field">
       <label>Dirección (línea 1)</label>
-      <input type="text" name="empresa_dir1" value="<?= htmlspecialchars($data['empresa_dir1'] ?? '') ?>" placeholder="Urb. Jacarandas - Casa 13">
+      <input type="text" name="empresa_dir1" maxlength="200" value="<?= htmlspecialchars($data['empresa_dir1'] ?? '') ?>" placeholder="Urb. Jacarandas - Casa 13">
     </div>
     <div class="field">
       <label>Dirección (ciudad - CP - provincia)</label>
-      <input type="text" name="empresa_dir2" value="<?= htmlspecialchars($data['empresa_dir2'] ?? '') ?>" placeholder="Nerja - 29780 - Málaga">
+      <input type="text" name="empresa_dir2" maxlength="200" value="<?= htmlspecialchars($data['empresa_dir2'] ?? '') ?>" placeholder="Nerja - 29780 - Málaga">
     </div>
     <div class="field-row">
       <div class="field">
         <label>Email</label>
-        <input type="email" name="empresa_email" value="<?= htmlspecialchars($data['empresa_email'] ?? '') ?>" placeholder="info@segurizate.info">
+        <input type="email" name="empresa_email" maxlength="150" value="<?= htmlspecialchars($data['empresa_email'] ?? '') ?>" placeholder="info@segurizate.info">
       </div>
       <div class="field">
         <label>Web</label>
-        <input type="text" name="empresa_web" value="<?= htmlspecialchars($data['empresa_web'] ?? '') ?>" placeholder="www.segurizate.info">
+        <input type="text" name="empresa_web" maxlength="150" value="<?= htmlspecialchars($data['empresa_web'] ?? '') ?>" placeholder="www.segurizate.info">
       </div>
     </div>
     <div class="field-row">
       <div class="field">
         <label>Banco</label>
-        <input type="text" name="empresa_banco" value="<?= htmlspecialchars($data['empresa_banco'] ?? '') ?>" placeholder="Unicaja">
+        <input type="text" name="empresa_banco" maxlength="100" value="<?= htmlspecialchars($data['empresa_banco'] ?? '') ?>" placeholder="Unicaja">
       </div>
       <div class="field">
         <label>IBAN</label>
-        <input type="text" name="empresa_iban" value="<?= htmlspecialchars($data['empresa_iban'] ?? '') ?>" placeholder="ES63 2103 3032 55 ...">
+        <input type="text" name="empresa_iban" maxlength="34" value="<?= htmlspecialchars($data['empresa_iban'] ?? '') ?>" placeholder="ES63 2103 3032 55 ...">
       </div>
     </div>
 
@@ -587,13 +664,13 @@ input.error { border-color: #ef4444; }
 
     <div class="field">
       <label>Usuario *</label>
-      <input type="text" name="admin_user" required value="<?= htmlspecialchars($data['admin_user'] ?? '') ?>" placeholder="admin" autocomplete="username">
-      <div class="field-hint">Con este usuario iniciarás sesión en la aplicación</div>
+      <input type="text" name="admin_user" required maxlength="80" pattern="[a-zA-Z0-9_.\-]{3,80}" value="<?= htmlspecialchars($data['admin_user'] ?? '') ?>" placeholder="admin" autocomplete="username">
+      <div class="field-hint">Solo letras, números, guiones y puntos. Mínimo 3 caracteres.</div>
     </div>
     <div class="field-row">
       <div class="field">
         <label>Contraseña *</label>
-        <input type="password" name="admin_pass" id="pass1" required minlength="8" placeholder="Mín. 8 caracteres" autocomplete="new-password" oninput="checkPass()">
+        <input type="password" name="admin_pass" id="pass1" required minlength="8" placeholder="Mín. 8 chars, letras y números" autocomplete="new-password" oninput="checkPass()">
         <div class="pass-strength" id="passStrength"></div>
       </div>
       <div class="field">
@@ -603,6 +680,7 @@ input.error { border-color: #ef4444; }
     </div>
     <div id="passMsg" style="font-size:.78rem;margin-top:-.5rem;margin-bottom:1rem"></div>
 
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <button type="submit" class="btn-next" id="btnStep3">Continuar → Instalar</button>
   </form>
   <script>
@@ -668,6 +746,7 @@ input.error { border-color: #ef4444; }
   </div>
 
   <form method="post">
+    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($_SESSION['csrf_token'] ?? '') ?>">
     <button type="submit" class="btn-next gold">🚀 Instalar ahora</button>
     <a href="?step=3" style="display:block;text-align:center;margin-top:.75rem;font-size:.83rem;color:#6b7280">← Volver y corregir</a>
   </form>
