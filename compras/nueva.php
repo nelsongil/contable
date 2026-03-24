@@ -416,12 +416,11 @@ async function processPdf(file) {
                 body: new URLSearchParams(finalData)
             });
             
-            if (resp.redirected) {
-                window.location.href = resp.url;
+            const result = await resp.json();
+            if (result.ok) {
+                window.location.href = '/compras/';
             } else {
-                const text = await resp.text();
-                // Si hay error (y no redirección), mostrarlo
-                showResult('error', 'Error al guardar la factura. Revisa los datos.');
+                showResult('error', result.error || 'Error al guardar la factura. Revisa los datos.');
                 btn.disabled = false;
                 btn.innerHTML = '<i class="bi bi-check-lg me-1"></i> Confirmar y guardar';
             }

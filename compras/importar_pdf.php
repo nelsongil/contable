@@ -128,7 +128,12 @@ if (preg_match('/(?:cuota\s*iva|iva)[^\d]*(\d+[.,]\d{2})/i', $fullText, $m)) {
     }
 }
 
-// 7. Nombre del proveedor
+// 7. Descripción / Concepto
+if (preg_match('/(?:concepto|descripci[oó]n|objeto|servicios?|por)\s*[:\-]\s*([^\n]{5,80})/i', $fullText, $m)) {
+    $data['descripcion'] = trim($m[1]);
+}
+
+// 8. Nombre del proveedor
 $nifLineIdx = -1;
 if ($data['proveedor_nif']) {
     foreach ($lines as $idx => $line) {
