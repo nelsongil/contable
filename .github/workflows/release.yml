@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 jobs:
   release:
@@ -19,7 +19,19 @@ jobs:
         id: ver
         run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
+      - name: Comprobar si el tag ya existe
+        id: tag_check
+        run: |
+          VERSION="${{ steps.ver.outputs.VERSION }}"
+          if git ls-remote --tags origin "refs/tags/v${VERSION}" | grep -q "v${VERSION}"; then
+            echo "EXISTS=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "EXISTS=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Construir ZIP limpio
+        if: steps.tag_check.outputs.EXISTS == 'false'
+        id: zip
         run: |
           VERSION="${{ steps.ver.outputs.VERSION }}"
           ZIP="contable_v${VERSION}.zip"
@@ -47,13 +59,12 @@ jobs:
 
           echo "ZIP_PATH=$ZIP" >> "$GITHUB_OUTPUT"
           echo "Archivos incluidos: $(unzip -l $ZIP | tail -1)"
-        id: zip
 
       - name: Extraer notas del CHANGELOG
+        if: steps.tag_check.outputs.EXISTS == 'false'
         id: notes
         run: |
           VERSION="${{ steps.ver.outputs.VERSION }}"
-          # Extraer el bloque del CHANGELOG para esta versión (sin el prefijo v)
           NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d' | head -50)
           if [ -z "$NOTES" ]; then
             NOTES="Versión ${VERSION}"
@@ -64,10 +75,12 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Crear Release en GitHub
+      - name: Crear tag y Release en GitHub
+        if: steps.tag_check.outputs.EXISTS == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          name: "Libro Contable ${{ github.ref_name }}"
+          tag_name: "v${{ steps.ver.outputs.VERSION }}"
+          name: "Libro Contable v${{ steps.ver.outputs.VERSION }}"
           body: ${{ steps.notes.outputs.NOTES }}
           files: ${{ steps.zip.outputs.ZIP_PATH }}
           draft: false
