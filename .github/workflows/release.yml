@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Leer versión
+        id: ver
+        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Construir ZIP limpio
+        run: |
+          VERSION="${{ steps.ver.outputs.VERSION }}"
+          ZIP="contable_v${VERSION}.zip"
+
+          zip -r "$ZIP" . \
+            --exclude "*.git/*" \
+            --exclude "*.git" \
+            --exclude ".claude/*" \
+            --exclude ".agent/*" \
+            --exclude "tools/*" \
+            --exclude "backups/*" \
+            --exclude ".well-known/*" \
+            --exclude "config/database.php" \
+            --exclude "config/.installed" \
+            --exclude "*.zip" \
+            --exclude ".gitignore" \
+            --exclude "error_log" \
+            --exclude "Thumbs.db" \
+            --exclude "CLAUDE.md" \
+            --exclude "AGENTS.md" \
+            --exclude "CONVENTIONS.md" \
+            --exclude "DATABASE.md" \
+            --exclude "SECURITY.md" \
+            --exclude "README.md"
+
+          echo "ZIP_PATH=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "Archivos incluidos: $(unzip -l $ZIP | tail -1)"
+        id: zip
+
+      - name: Extraer notas del CHANGELOG
+        id: notes
+        run: |
+          VERSION="${{ steps.ver.outputs.VERSION }}"
+          # Extraer el bloque del CHANGELOG para esta versión (sin el prefijo v)
+          NOTES=$(awk "/^## \[${VERSION}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md | sed '/^$/d' | head -50)
+          if [ -z "$NOTES" ]; then
+            NOTES="Versión ${VERSION}"
+          fi
+          {
+            echo "NOTES<<EOF"
+            echo "$NOTES"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Crear Release en GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Libro Contable ${{ github.ref_name }}"
+          body: ${{ steps.notes.outputs.NOTES }}
+          files: ${{ steps.zip.outputs.ZIP_PATH }}
+          draft: false
+          prerelease: false
