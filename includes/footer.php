@@ -110,6 +110,25 @@ function showWarning() {
 });
 resetInactivity();
 
+// ─── Tema claro / oscuro ───
+function toggleTheme() {
+  const html = document.documentElement;
+  const isDark = html.getAttribute('data-bs-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  html.setAttribute('data-bs-theme', next);
+  localStorage.setItem('app-theme', next);
+  updateThemeIcon(next);
+}
+function updateThemeIcon(theme) {
+  const icon = document.getElementById('themeIcon');
+  if (!icon) return;
+  icon.className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const theme = document.documentElement.getAttribute('data-bs-theme') || 'light';
+  updateThemeIcon(theme);
+});
+
 // ─── Sidebar móvil ───
 function toggleSidebar() {
     document.querySelector('.sidebar').classList.toggle('sidebar-open');

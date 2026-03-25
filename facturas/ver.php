@@ -83,7 +83,17 @@ body {
 .sender-brand { font-size: 11pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; }
 
 /* Legal note */
-.legal-note { margin-top: 30px; font-size: 6pt; color: #aaa; line-height: 1.4; text-align: justify; width: 100%; }
+.legal-note { margin-top: 28px; font-size: 6pt; color: #aaa; line-height: 1.4; text-align: justify; width: 100%; }
+
+/* Invoice page footer */
+.invoice-footer {
+  margin-top: 28px; padding-top: 12px;
+  border-top: 1px solid #e8e8e8;
+  display: flex; align-items: center; justify-content: center; gap: 32px;
+  font-size: 8pt; color: #888;
+}
+.invoice-footer a { color: #888; text-decoration: none; }
+.invoice-footer .sep { color: #ddd; }
 
 /* Utility */
 .mb-2 { margin-bottom: 0.5rem; }
@@ -212,24 +222,41 @@ body {
     </div>
 
     <!-- Columna derecha: DATOS DEL EMISOR -->
-    <div class="footer-col">
+    <div class="footer-col" style="text-align:right">
       <h4>Datos del emisor</h4>
       <p style="font-size: 8.5pt">
         <strong><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></strong><br>
         <?= e(getConfig('empresa_nombre', defined('EMPRESA_NOMBRE') ? EMPRESA_NOMBRE : '')) ?><br>
         CIF: <?= e(getConfig('empresa_cif', defined('EMPRESA_CIF') ? EMPRESA_CIF : '')) ?><br>
         <?= e(getConfig('empresa_dir1', defined('EMPRESA_DIR1') ? EMPRESA_DIR1 : '')) ?><br>
-        <?= e(getConfig('empresa_dir2', defined('EMPRESA_DIR2') ? EMPRESA_DIR2 : '')) ?><br>
-        <?= e(getConfig('empresa_email', defined('EMPRESA_EMAIL') ? EMPRESA_EMAIL : '')) ?><br>
-        <?= e(getConfig('empresa_web', defined('EMPRESA_WEB') ? EMPRESA_WEB : '')) ?>
+        <?= e(trim(getConfig('empresa_dir2', defined('EMPRESA_DIR2') ? EMPRESA_DIR2 : ''))) ?>
       </p>
     </div>
   </div>
 
   <!-- SECCIÓN 6: NOTA LEGAL LOPD -->
+  <?php if (getConfig('invoice_legal', '')): ?>
   <div class="legal-note">
     <?= nl2br(e(getConfig('invoice_legal', ''))) ?>
   </div>
+  <?php endif; ?>
+
+  <!-- PIE DE PÁGINA: email y web -->
+  <?php
+    $emailEmisor = getConfig('empresa_email', defined('EMPRESA_EMAIL') ? EMPRESA_EMAIL : '');
+    $webEmisor   = getConfig('empresa_web',  defined('EMPRESA_WEB')   ? EMPRESA_WEB   : '');
+  ?>
+  <?php if ($emailEmisor || $webEmisor): ?>
+  <div class="invoice-footer">
+    <?php if ($emailEmisor): ?>
+      <span><i>✉</i> <?= e($emailEmisor) ?></span>
+    <?php endif; ?>
+    <?php if ($emailEmisor && $webEmisor): ?><span class="sep">|</span><?php endif; ?>
+    <?php if ($webEmisor): ?>
+      <span>🌐 <?= e($webEmisor) ?></span>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
 </div>
 </body>
 </html>
