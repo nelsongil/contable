@@ -71,7 +71,7 @@ foreach ($facturas as $f) {
           <td><a href="ver.php?id=<?= $f['id'] ?>" class="fw-semibold text-decoration-none"><?= e($f['numero']) ?></a></td>
           <td><?= date('d/m/Y', strtotime($f['fecha'])) ?></td>
           <td><span class="badge-trim">T<?= $f['trimestre'] ?></span></td>
-          <td class="text-truncate" style="max-width:160px"><?= e($f['cliente_nombre']) ?></td>
+          <td class="text-truncate" style="max-width:160px"><?= e($f['cliente_nombre'] ?: $f['cliente_nombre_actual'] ?: '—') ?></td>
           <td class="text-end"><?= money($f['base_imponible']) ?></td>
           <td class="text-end"><?= money($f['cuota_iva']) ?></td>
           <td class="text-end fw-semibold"><?= money($f['total']) ?></td>
@@ -93,7 +93,7 @@ foreach ($facturas as $f) {
       </tbody>
       <?php if ($facturas): ?>
       <tfoot>
-        <tr class="fw-bold" style="background:#f0f7f4">
+        <tr class="fw-bold" style="background:var(--surface-2)">
           <td colspan="4">TOTAL</td>
           <td class="text-end"><?= money($totBase) ?></td>
           <td class="text-end"><?= money($totIva) ?></td>

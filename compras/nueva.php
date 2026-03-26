@@ -362,9 +362,21 @@ async function processPdf(file) {
                 </div>
                 <div class="col-12 text-start">
                     <label class="form-label mb-0" style="font-size:.75rem">Concepto / Descripción</label>
-                    <input type="text" id="import_desc" class="form-control form-control-sm" value="${escHtml(data.descripcion)}" maxlength="100">
+                    <input type="text" id="import_desc" class="form-control form-control-sm" value="${escHtml(data.descripcion)}" maxlength="200">
                 </div>
+                ${data.proveedor_direccion ? `<div class="col-12 text-start text-muted" style="font-size:.74rem"><i class="bi bi-geo-alt me-1"></i>${escHtml(data.proveedor_direccion)}</div>` : ''}
             </div>
+
+            ${data.lineas && data.lineas.length > 0 ? `
+            <div class="mt-3">
+              <div style="font-size:.74rem;font-weight:600;color:var(--text-2);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.05em;">
+                <i class="bi bi-list-ul me-1"></i>Líneas detectadas (${data.lineas.length})
+              </div>
+              <table class="table table-sm mb-0" style="font-size:.78rem;">
+                <thead><tr><th style="width:50px">Cant.</th><th>Descripción</th><th class="text-end" style="width:90px">Importe</th></tr></thead>
+                <tbody>${data.lineas.map(l => `<tr><td>${l.cantidad}</td><td>${escHtml(l.descripcion)}</td><td class="text-end">${l.importe.toLocaleString('es-ES',{minimumFractionDigits:2})} €</td></tr>`).join('')}</tbody>
+              </table>
+            </div>` : ''}
 
             <div class="mt-2 text-muted" style="font-size:.7rem; font-style: italic;">
                 * Colores indican nivel de confianza en la detección automática.

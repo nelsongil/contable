@@ -83,7 +83,7 @@ body {
 .sender-brand { font-size: 11pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; }
 
 /* Legal note */
-.legal-note { margin-top: 28px; font-size: 6pt; color: #aaa; line-height: 1.4; text-align: justify; width: 100%; }
+.legal-note { margin-top: 28px; font-size: 7.5pt; color: #999; line-height: 1.5; text-align: justify; display: block; width: 100%; clear: both; }
 
 /* Invoice page footer */
 .invoice-footer {
@@ -307,7 +307,7 @@ require_once __DIR__ . '/../includes/header.php';
           </tbody>
         </table>
       </div>
-      <div class="card-footer bg-white">
+      <div class="card-footer">
         <div class="row justify-content-end">
           <div class="col-md-4">
             <table class="table table-sm text-end mb-0">

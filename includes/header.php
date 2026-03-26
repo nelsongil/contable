@@ -76,17 +76,6 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
   --sb-border:    rgba(255,255,255,.08);
 }
 
-/* ── Modo oscuro ── */
-[data-bs-theme="dark"] {
-  --bg:        #0F172A;
-  --surface:   #1E293B;
-  --surface-2: #0F172A;
-  --border:    #334155;
-  --text:      #F1F5F9;
-  --text-2:    #94A3B8;
-  --text-3:    #64748B;
-}
-
 /* ── Base ── */
 body {
   font-family: 'Inter', sans-serif;
@@ -217,7 +206,7 @@ body {
   text-transform: uppercase; letter-spacing: .06em;
   border: none; padding: .68rem 1rem;
 }
-[data-bs-theme="dark"] .table thead th { background: var(--verde-m); }
+/* dark mode table headers — sobreescrito también abajo con !important */
 .table tbody tr { transition: background .12s; cursor: pointer; }
 .table tbody tr:hover { background: rgba(99,102,241,.06); }
 .table td { vertical-align: middle; padding: .6rem 1rem; border-color: var(--border); color: var(--text); }
@@ -318,6 +307,42 @@ body {
 $cntBorradores = (int)getDB()->query("SELECT COUNT(*) FROM facturas_emitidas WHERE estado='borrador'")->fetchColumn();
 ?>
 <?= getThemeCSS() ?>
+<style>
+/* ══════════════════════════════════════════════════
+   DARK MODE — debe ir DESPUÉS de getThemeCSS() porque
+   ese bloque usa !important en :root (especificidad 0-1-0).
+   Usamos html[data-bs-theme="dark"] (0-1-1) + !important
+   para ganar la cascada en todos los casos.
+══════════════════════════════════════════════════ */
+html[data-bs-theme="dark"] {
+  --bg:        #0F172A !important;
+  --surface:   #1E293B !important;
+  --surface-2: #0F172A !important;
+  --border:    #334155 !important;
+  --text:      #F1F5F9 !important;
+  --text-2:    #94A3B8 !important;
+  --text-3:    #64748B !important;
+}
+/* Forzar superficies oscuras en utilidades Bootstrap */
+html[data-bs-theme="dark"] .bg-white,
+html[data-bs-theme="dark"] .bg-light    { background-color: var(--surface) !important; }
+html[data-bs-theme="dark"] .card,
+html[data-bs-theme="dark"] .card-footer,
+html[data-bs-theme="dark"] .card-body   { background-color: var(--surface) !important; color: var(--text) !important; }
+html[data-bs-theme="dark"] .topbar      { background: var(--surface) !important; }
+html[data-bs-theme="dark"] .table thead th { background: var(--verde-m) !important; }
+html[data-bs-theme="dark"] .table td   { border-color: var(--border) !important; color: var(--text) !important; }
+html[data-bs-theme="dark"] .table tfoot tr { background: var(--surface-2) !important; }
+html[data-bs-theme="dark"] .kpi-card,
+html[data-bs-theme="dark"] .kpi,
+html[data-bs-theme="dark"] .section-card,
+html[data-bs-theme="dark"] .chart-card  { background: var(--surface) !important; border-color: var(--border) !important; }
+html[data-bs-theme="dark"] .modal-content { background-color: var(--surface) !important; }
+html[data-bs-theme="dark"] .dropdown-menu { background-color: var(--surface) !important; border-color: var(--border) !important; }
+html[data-bs-theme="dark"] .dropdown-item { color: var(--text) !important; }
+html[data-bs-theme="dark"] .dropdown-item:hover { background-color: var(--surface-2) !important; }
+html[data-bs-theme="dark"] .input-group-text { background-color: var(--surface-2) !important; border-color: var(--border) !important; color: var(--text-2) !important; }
+</style>
 </head>
 <body>
 
@@ -471,6 +496,13 @@ if ($update && $update['version'] !== $dismissed):
         </button>
       </div>
     </div>
+
+    <?php $sbLogo = getConfig('invoice_logo', ''); if ($sbLogo): ?>
+    <div class="text-center mb-2">
+      <img src="<?= e($sbLogo) ?>" alt="Logo empresa"
+           style="max-height:38px;max-width:160px;object-fit:contain;opacity:.82;filter:brightness(1.15);">
+    </div>
+    <?php endif; ?>
 
     <button class="logout-btn"
             id="logoutBtn"
