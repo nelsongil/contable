@@ -51,38 +51,50 @@ $ultimas = $ul->fetchAll();
 <style>
 /* ── KPI cards ── */
 .kpi-card {
-  background: var(--surface); border-radius: 14px;
-  padding: 1.2rem 1.35rem;
+  background: var(--surface); border-radius: 16px;
+  padding: 1.25rem 1.4rem 1.15rem;
   border: 1px solid var(--border);
   display: flex; align-items: center; gap: 1rem;
-  transition: box-shadow .2s, transform .15s;
-  height: 100%;
+  transition: box-shadow .25s ease, transform .2s ease;
+  height: 100%; position: relative; overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.05);
 }
-.kpi-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.09); transform: translateY(-2px); }
+.kpi-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: var(--kpi-accent, var(--verde-a));
+  border-radius: 16px 16px 0 0;
+}
+.kpi-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,.05), 0 16px 40px rgba(0,0,0,.1);
+  transform: translateY(-3px);
+}
 .kpi-ic {
-  width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center; font-size: 1.25rem;
+  width: 50px; height: 50px; border-radius: 14px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 1.3rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.08);
 }
-.kpi-ic.g  { background: rgba( 5,150,105,.12); color: #059669; }
-.kpi-ic.r  { background: rgba(220, 38, 38,.12); color: #dc2626; }
-.kpi-ic.b  { background: rgba(37,99,235,.12);   color: #2563eb; }
-.kpi-ic.or { background: rgba(234,88,12,.12);   color: #ea580c; }
-.kpi-ic.au { background: rgba(180,83,9,.12);    color: #b45309; }
-.kpi-lbl { font-size: .69rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .1rem; }
-.kpi-val { font-size: 1.42rem; font-weight: 800; color: var(--text); line-height: 1.15; }
+.kpi-ic.g  { background: linear-gradient(135deg,rgba(5,150,105,.15),rgba(5,150,105,.08)); color: #059669; }
+.kpi-ic.r  { background: linear-gradient(135deg,rgba(220,38,38,.15),rgba(220,38,38,.08)); color: #dc2626; }
+.kpi-ic.b  { background: linear-gradient(135deg,rgba(37,99,235,.15),rgba(37,99,235,.08));  color: #2563eb; }
+.kpi-ic.or { background: linear-gradient(135deg,rgba(234,88,12,.15),rgba(234,88,12,.08));  color: #ea580c; }
+.kpi-ic.au { background: linear-gradient(135deg,rgba(180,83,9,.15),rgba(180,83,9,.08));   color: #b45309; }
+.kpi-lbl { font-size: .68rem; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .15rem; }
+.kpi-val { font-size: 1.48rem; font-weight: 800; color: var(--text); line-height: 1.15; letter-spacing: -.02em; }
 .kpi-val.neg { color: var(--clr-danger); }
-.kpi-sub { font-size: .72rem; color: var(--text-3); margin-top: .2rem; }
+.kpi-sub { font-size: .72rem; color: var(--text-3); margin-top: .25rem; display: flex; align-items: center; gap: .25rem; }
 .kpi-sub.ok  { color: var(--clr-success); }
 .kpi-sub.bad { color: var(--clr-danger); }
 .kpi-sub.warn{ color: var(--clr-warning); }
 
 /* ── Gráfico ── */
 .chart-card {
-  background: var(--surface); border-radius: 14px;
+  background: var(--surface); border-radius: 16px;
   border: 1px solid var(--border); overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.05);
 }
 .chart-header {
-  padding: .82rem 1.35rem; border-bottom: 1px solid var(--border);
+  padding: .9rem 1.4rem; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   font-weight: 600; font-size: .88rem; color: var(--text);
 }
@@ -91,60 +103,74 @@ $ultimas = $ul->fetchAll();
 .legend-dot::before { content:''; width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .legend-dot.v::before { background: var(--verde-a); }
 .legend-dot.c::before { background: var(--gold); }
-.chart-body { padding: 1.15rem 1.35rem 1rem; }
+.chart-body { padding: 1.2rem 1.4rem 1.1rem; }
 
 /* ── Tabla trimestral ── */
 .trim-table tfoot td { background: var(--surface-2) !important; font-weight: 700; border-top: 2px solid var(--border) !important; color: var(--text) !important; }
-.trim-active { background: rgba(245,158,11,.06) !important; }
+.trim-active { background: rgba(245,158,11,.05) !important; }
 .trim-active td:first-child { border-left: 3px solid var(--gold) !important; }
 .trim-badge {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 8px;
+  width: 30px; height: 30px; border-radius: 9px;
   background: var(--verde-a); color: #fff; font-size: .71rem; font-weight: 700;
+  box-shadow: 0 2px 6px rgba(99,102,241,.3);
 }
-.trim-badge.active { background: var(--gold); color: var(--verde); }
+.trim-badge.active { background: var(--gold); color: var(--verde); box-shadow: 0 2px 6px rgba(245,158,11,.35); }
 .iva-ok  { color: var(--clr-danger);  font-weight: 600; }
 .iva-neg { color: var(--clr-success); font-weight: 600; }
 
 /* ── Últimas facturas ── */
-.fact-row { cursor: pointer; transition: background .12s; }
+.fact-row { transition: background .2s ease; }
+.fact-row:hover { background: rgba(99,102,241,.04) !important; }
 .fact-num { font-weight: 700; color: var(--verde-a); font-size: .82rem; }
 .fact-cli { font-size: .82rem; color: var(--text-2); }
 .fact-total { font-weight: 700; font-size: .85rem; color: var(--text); }
-.empty-state { padding: 2.5rem 1rem; text-align: center; color: var(--text-3); }
-.empty-state i { font-size: 2rem; display: block; margin-bottom: .5rem; opacity: .4; }
+.empty-state { padding: 3rem 1rem; text-align: center; color: var(--text-3); }
+.empty-state i { font-size: 2.5rem; display: block; margin-bottom: .75rem; opacity: .3; }
 
 /* ── Sección cards ── */
 .section-card {
-  background: var(--surface); border-radius: 14px;
+  background: var(--surface); border-radius: 16px;
   border: 1px solid var(--border); overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04), 0 4px 16px rgba(0,0,0,.05);
 }
 .section-card .s-header {
-  padding: .78rem 1.2rem; border-bottom: 1px solid var(--border);
+  padding: .85rem 1.25rem; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; justify-content: space-between;
   font-weight: 600; font-size: .88rem; color: var(--text);
+}
+
+/* ── Barra margen ── */
+.margin-bar {
+  height: 4px; border-radius: 4px;
+  background: var(--border); overflow: hidden; margin-top: .35rem;
+}
+.margin-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--verde-a), var(--gold));
+  transition: width .6s ease;
 }
 </style>
 
 <!-- Topbar -->
 <div class="topbar fade-in-up">
   <div>
-    <h1 class="d-flex align-items-center gap-2">
-      <i class="bi bi-speedometer2"></i>Dashboard
-      <span style="font-size:.85rem;font-weight:500;color:#6b7280;"><?= $anio ?></span>
+    <h1 class="d-flex align-items-center gap-2 mb-0">
+      <i class="bi bi-speedometer2" style="color:var(--verde-a)"></i>Dashboard
+      <span class="badge rounded-pill" style="background:rgba(99,102,241,.12);color:var(--verde-a);font-size:.75rem;font-weight:600;padding:.25em .65em;"><?= $anio ?></span>
     </h1>
-    <p class="text-muted mb-0" style="font-size:.78rem;">
-      Bienvenido, <strong><?= e($_SESSION['usuario_nombre'] ?? 'Usuario') ?></strong>
-      &nbsp;·&nbsp; T<?= $trimActual ?> en curso &nbsp;·&nbsp;
-      <?= date('d M Y') ?>
+    <p class="mb-0 mt-1" style="font-size:.78rem;color:var(--text-3);">
+      Bienvenido, <strong style="color:var(--text-2)"><?= e($_SESSION['usuario_nombre'] ?? 'Usuario') ?></strong>
+      &nbsp;<span style="opacity:.4">·</span>&nbsp; T<?= $trimActual ?> en curso
+      &nbsp;<span style="opacity:.4">·</span>&nbsp; <?= date('d M Y') ?>
     </p>
   </div>
   <div class="d-flex gap-2">
     <div class="dropdown">
-      <button class="btn btn-gold btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+      <button class="btn btn-gold btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
         <i class="bi bi-plus-lg me-1"></i>Nuevo
       </button>
-      <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+      <ul class="dropdown-menu dropdown-menu-end">
         <li><a class="dropdown-item" href="facturas/nueva.php"><i class="bi bi-receipt me-2 text-primary"></i>Factura emitida</a></li>
         <li><a class="dropdown-item" href="compras/nueva.php"><i class="bi bi-bag me-2 text-success"></i>Factura recibida</a></li>
         <li><hr class="dropdown-divider"></li>
@@ -158,49 +184,51 @@ $ultimas = $ul->fetchAll();
 <!-- KPIs -->
 <div class="row g-3 mb-4">
   <div class="col-6 col-xl-3 fade-in-up delay-1">
-    <div class="kpi-card">
+    <div class="kpi-card" style="--kpi-accent:#059669">
       <div class="kpi-ic g"><i class="bi bi-graph-up-arrow"></i></div>
-      <div>
+      <div class="flex-grow-1 min-w-0">
         <div class="kpi-lbl">Ingresos <?= $anio ?></div>
         <div class="kpi-val"><?= money($ventas['base']) ?></div>
-        <div class="kpi-sub"><?= $ventas['cnt'] ?> facturas emitidas</div>
+        <div class="kpi-sub ok"><i class="bi bi-receipt"></i><?= $ventas['cnt'] ?> facturas emitidas</div>
       </div>
     </div>
   </div>
   <div class="col-6 col-xl-3 fade-in-up delay-2">
-    <div class="kpi-card">
+    <div class="kpi-card" style="--kpi-accent:#dc2626">
       <div class="kpi-ic r"><i class="bi bi-graph-down-arrow"></i></div>
-      <div>
+      <div class="flex-grow-1 min-w-0">
         <div class="kpi-lbl">Gastos <?= $anio ?></div>
         <div class="kpi-val"><?= money($compras['base']) ?></div>
-        <div class="kpi-sub"><?= $compras['cnt'] ?> facturas recibidas</div>
+        <div class="kpi-sub bad"><i class="bi bi-bag"></i><?= $compras['cnt'] ?> facturas recibidas</div>
       </div>
     </div>
   </div>
   <div class="col-6 col-xl-3 fade-in-up delay-3">
-    <div class="kpi-card">
+    <?php $ivaAccent = $ivaAnual >= 0 ? '#ea580c' : '#2563eb'; ?>
+    <div class="kpi-card" style="--kpi-accent:<?= $ivaAccent ?>">
       <div class="kpi-ic <?= $ivaAnual >= 0 ? 'or' : 'b' ?>"><i class="bi bi-bank"></i></div>
-      <div>
+      <div class="flex-grow-1 min-w-0">
         <div class="kpi-lbl">IVA neto acumulado</div>
-        <div class="kpi-val <?= $ivaAnual < 0 ? '' : '' ?>"><?= money($ivaAnual) ?></div>
+        <div class="kpi-val"><?= money($ivaAnual) ?></div>
         <div class="kpi-sub <?= $ivaAnual >= 0 ? 'bad' : 'ok' ?>">
-          <?= $ivaAnual >= 0 ? '<i class="bi bi-arrow-up-circle-fill me-1"></i>A ingresar a Hacienda' : '<i class="bi bi-arrow-down-circle-fill me-1"></i>A compensar' ?>
+          <i class="bi bi-<?= $ivaAnual >= 0 ? 'arrow-up-circle' : 'arrow-down-circle' ?>"></i>
+          <?= $ivaAnual >= 0 ? 'A ingresar a Hacienda' : 'A compensar' ?>
         </div>
       </div>
     </div>
   </div>
   <div class="col-6 col-xl-3 fade-in-up delay-4">
-    <div class="kpi-card">
+    <div class="kpi-card" style="--kpi-accent:<?= $rendimiento >= 0 ? '#b45309' : '#dc2626' ?>">
       <div class="kpi-ic au"><i class="bi bi-wallet2"></i></div>
-      <div>
+      <div class="flex-grow-1 min-w-0">
         <div class="kpi-lbl">Rendimiento neto</div>
         <div class="kpi-val <?= $rendimiento < 0 ? 'neg' : '' ?>"><?= money($rendimiento) ?></div>
-        <div class="kpi-sub <?= $rendimiento < 0 ? 'bad' : 'warn' ?>">
-          IRPF est. <?= money($irpfEstimado) ?>
-          <?php if ($ventas['base'] > 0): ?>
-          &nbsp;·&nbsp; margen <?= number_format($margenPct, 1) ?>%
-          <?php endif; ?>
+        <div class="kpi-sub warn"><i class="bi bi-percent"></i>IRPF est. <?= money($irpfEstimado) ?></div>
+        <?php if ($ventas['base'] > 0): ?>
+        <div class="margin-bar" title="Margen: <?= number_format($margenPct,1) ?>%">
+          <div class="margin-bar-fill" style="width:<?= min(100,max(0,$margenPct)) ?>%"></div>
         </div>
+        <?php endif; ?>
       </div>
     </div>
   </div>
@@ -208,14 +236,17 @@ $ultimas = $ul->fetchAll();
 
 <?php if ($pendiente['cnt'] > 0): ?>
 <!-- Alerta pendiente de cobro -->
-<div class="alert d-flex align-items-center gap-3 fade-in-up mb-4 rounded-3"
-     style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-left:3px solid var(--gold) !important;padding:.82rem 1.2rem;">
-  <i class="bi bi-clock-history fs-5" style="color:var(--gold);"></i>
+<div class="d-flex align-items-center gap-3 fade-in-up mb-4 rounded-3"
+     style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);padding:.88rem 1.25rem;box-shadow:0 2px 8px rgba(245,158,11,.12);">
+  <div style="width:36px;height:36px;border-radius:10px;background:rgba(245,158,11,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <i class="bi bi-clock-history" style="color:var(--gold);font-size:1rem;"></i>
+  </div>
   <div class="flex-grow-1" style="font-size:.85rem;color:var(--text);">
     <strong><?= $pendiente['cnt'] ?> factura<?= $pendiente['cnt'] > 1 ? 's' : '' ?> pendiente<?= $pendiente['cnt'] > 1 ? 's' : '' ?> de cobro</strong>
-    &nbsp;— Total: <strong><?= money($pendiente['total']) ?></strong>
+    <span style="color:var(--text-3);margin:0 .35rem;">·</span>
+    Total: <strong style="color:var(--gold)"><?= money($pendiente['total']) ?></strong>
   </div>
-  <a href="facturas/?estado=emitida" class="btn btn-sm btn-gold" style="font-size:.78rem;">Ver facturas</a>
+  <a href="facturas/" class="btn btn-sm btn-gold" style="font-size:.78rem;white-space:nowrap;">Ver facturas</a>
 </div>
 <?php endif; ?>
 
@@ -298,13 +329,13 @@ $ultimas = $ul->fetchAll();
             [$bc, $bl] = $badges[$f['estado']] ?? ['secondary', $f['estado']];
           ?>
           <tr class="fact-row" onclick="location.href='facturas/ver.php?id=<?= $f['id'] ?>'">
-            <td style="width:90px">
+            <td style="width:95px">
               <div class="fact-num"><?= e($f['numero']) ?></div>
-              <div style="font-size:.7rem;color:#9ca3af;"><?= date('d/m/Y', strtotime($f['fecha'])) ?></div>
+              <div style="font-size:.69rem;color:var(--text-3);"><?= date('d/m/Y', strtotime($f['fecha'])) ?></div>
             </td>
             <td>
-              <div class="fact-cli text-truncate" style="max-width:130px;"><?= e($f['cliente_nombre'] ?: '—') ?></div>
-              <span class="badge bg-<?= $bc ?>" style="font-size:.65rem;"><?= $bl ?></span>
+              <div class="fact-cli text-truncate" style="max-width:140px;font-weight:500;"><?= e($f['cliente_nombre'] ?: '—') ?></div>
+              <span class="badge bg-<?= $bc ?>" style="font-size:.62rem;margin-top:.15rem;"><?= $bl ?></span>
             </td>
             <td class="text-end fact-total" style="white-space:nowrap;"><?= money($f['total']) ?></td>
           </tr>
