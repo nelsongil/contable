@@ -115,9 +115,22 @@ a, button, .btn, select, label[for], [role="button"], .fact-row,
 .sidebar::-webkit-scrollbar { width: 3px; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 2px; }
 
+/* ── Logo banner (arriba del sidebar) ── */
+.sidebar-logo-img {
+  display: block; padding: .85rem 1rem .7rem;
+  border-bottom: 1px solid var(--sb-border);
+  text-align: center; text-decoration: none;
+  background: rgba(0,0,0,.12);
+}
+.sidebar-logo-img img {
+  max-height: 48px; width: 100%; max-width: 180px;
+  object-fit: contain;
+  filter: brightness(1.1) drop-shadow(0 1px 3px rgba(0,0,0,.25));
+}
+
 .sidebar-logo {
   display: block; text-decoration: none;
-  padding: 1.2rem 1rem .9rem;
+  padding: .95rem 1rem .8rem;
   border-bottom: 1px solid var(--sb-border);
   transition: background .15s;
 }
@@ -368,6 +381,15 @@ html[data-bs-theme="dark"] .dropdown-menu { background-color: var(--surface) !im
 html[data-bs-theme="dark"] .dropdown-item { color: var(--text) !important; }
 html[data-bs-theme="dark"] .dropdown-item:hover { background-color: var(--surface-2) !important; }
 html[data-bs-theme="dark"] .input-group-text { background-color: var(--surface-2) !important; border-color: var(--border) !important; color: var(--text-2) !important; }
+/* Botón gold en dark mode — Bootstrap 5.3 sobreescribe btn vars */
+html[data-bs-theme="dark"] .btn-gold,
+html[data-bs-theme="dark"] .btn-gold:hover,
+html[data-bs-theme="dark"] .btn-gold:focus,
+html[data-bs-theme="dark"] .btn-gold:active { background: var(--gold) !important; border-color: var(--gold) !important; color: #1e1b4b !important; }
+html[data-bs-theme="dark"] .btn-primary,
+html[data-bs-theme="dark"] .btn-primary:hover { background: var(--verde-a) !important; border-color: var(--verde-a) !important; color: #fff !important; }
+html[data-bs-theme="dark"] .btn-outline-secondary { color: var(--text-2) !important; border-color: var(--border) !important; }
+html[data-bs-theme="dark"] .btn-outline-secondary:hover { background: var(--surface-2) !important; color: var(--text) !important; }
 </style>
 </head>
 <body>
@@ -422,6 +444,11 @@ if ($update && $update['version'] !== $dismissed):
 
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
+  <?php $sbLogo = getConfig('invoice_logo', ''); if ($sbLogo): ?>
+  <a href="/" class="sidebar-logo-img">
+    <img src="<?= e($sbLogo) ?>" alt="<?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?>">
+  </a>
+  <?php endif; ?>
   <a href="/" class="sidebar-logo">
     <div class="company"><?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?></div>
     <div class="person"><?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?></div>
@@ -522,13 +549,6 @@ if ($update && $update['version'] !== $dismissed):
         </button>
       </div>
     </div>
-
-    <?php $sbLogo = getConfig('invoice_logo', ''); if ($sbLogo): ?>
-    <div class="text-center mb-2">
-      <img src="<?= e($sbLogo) ?>" alt="Logo empresa"
-           style="max-height:38px;max-width:160px;object-fit:contain;opacity:.82;filter:brightness(1.15);">
-    </div>
-    <?php endif; ?>
 
     <button class="logout-btn"
             id="logoutBtn"
