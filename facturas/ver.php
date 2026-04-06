@@ -210,10 +210,6 @@ body {
           <strong>IBAN:</strong> <?= e(getConfig('empresa_iban', EMPRESA_IBAN)) ?><br>
           <strong>Referencia:</strong> Factura <?= e($factura['numero']) ?>
         </p>
-        <?php if ($factura['notas']): ?>
-          <h4 style="margin-top:.6rem">Notas</h4>
-          <p style="font-size:8.5pt;font-style:italic"><?= nl2br(e($factura['notas'])) ?></p>
-        <?php endif; ?>
       </td>
       <td>
         <h4>Datos del emisor</h4>
