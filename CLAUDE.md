@@ -11,6 +11,14 @@ Responder siempre en español, independientemente del idioma en que se formule l
 **Libro Contable** es una aplicación de contabilidad PHP ligera y autocontenida para autónomos españoles. Gestiona facturación, registro de gastos, clientes y proveedores, generación de libros contables e informes fiscales (Modelos 303/130). Sin framework, sin herramientas de compilación — PHP procedimental puro con MySQL y Bootstrap 5.3 via CDN.
 SOLO PARA TENER CONTROL CONTABLE, NO REEMPLAZA A UN ASESOR FISCAL
 
+## Workflow de Commit
+
+Cuando el usuario pida hacer un commit (con cualquier frase como "haz el commit", "commitea", etc.), seguir siempre este orden **sin pedir confirmación adicional**:
+
+1. **Generar el ZIP del instalador** ejecutando `powershell -File tools/build_zip.ps1` desde la raíz del proyecto.
+2. **Hacer git commit** de los archivos modificados (nunca incluir `.zip`, `config/database.php`, `config/.installed` ni archivos de `.claude/`).
+3. **Hacer git push** a `main` — el CI se encarga de incrementar el PATCH y crear el Release en GitHub automáticamente.
+
 ## Comandos de Desarrollo
 
 No existen herramientas de compilación ni gestores de paquetes. El desarrollo solo requiere un servidor web con PHP 8.0+ y MySQL.
