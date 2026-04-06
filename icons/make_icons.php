@@ -1,8 +1,8 @@
 <?php
 /**
  * Generador de iconos PNG para la PWA.
- * Accede a esta URL UNA SOLA VEZ tras colocar tu logo en assets/logo.png
- * o deja que use el icono SVG por defecto.
+ * Accede a esta URL UNA SOLA VEZ para generar los PNG de la PWA
+ * a partir de assets/logoApp.png (icono de la app, NO el logo de empresa).
  *
  * Uso: http://localhost/icons/make_icons.php
  */
@@ -17,8 +17,9 @@ $sizes  = [192, 512];
 $errors = [];
 $done   = [];
 
-// Fuente: si hay logo PNG en assets, usarlo; si no, crear icono programático
-$logoSrc = __DIR__ . '/../assets/logo.png';
+// assets/logoApp.png  → icono de la app (PWA)
+// assets/logo.png     → logo de empresa para facturas (NO tocar aquí)
+$logoSrc = __DIR__ . '/../assets/logoApp.png';
 $hasLogo = file_exists($logoSrc);
 
 foreach ($sizes as $size) {
@@ -29,7 +30,7 @@ foreach ($sizes as $size) {
     if ($hasLogo) {
         // Redimensionar el logo existente
         $src = imagecreatefrompng($logoSrc) ?: @imagecreatefromjpeg($logoSrc);
-        if (!$src) { $errors[] = "No se pudo leer assets/logo.png"; imagedestroy($canvas); continue; }
+        if (!$src) { $errors[] = "No se pudo leer assets/logoApp.png"; imagedestroy($canvas); continue; }
         $sw = imagesx($src); $sh = imagesy($src);
         $bg = imagecolorallocate($canvas, 67, 56, 202); // #4338CA
         imagefill($canvas, 0, 0, $bg);

@@ -31,9 +31,9 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Contable">
 <link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="/icons/icon-192.png">
-<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%234338CA'/%3E%3Cpath d='M9 7h14v18H9z' fill='%23F59E0B'/%3E%3Cpath d='M9 10h14M9 14h14M9 18h14M9 22h14' stroke='%234338CA' stroke-width='1.5'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="/assets/logoApp.png">
+<link rel="icon" type="image/x-icon" href="/assets/logoApp.ico">
+<link rel="icon" type="image/png" href="/assets/logoApp.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
