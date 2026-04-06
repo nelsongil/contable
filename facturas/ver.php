@@ -72,18 +72,13 @@ body {
 .totals-row.grand { font-size: 14pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; border-top: 2px solid <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; border-bottom: none; padding-top: 10px; margin-top: 5px; }
 .totals-row.irpf { color: #d32f2f; }
 
-/* Footer Columns */
-.footer-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; border-top: 1px solid #eee; padding-top: 30px; }
-.footer-col h4 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 12px; }
-.footer-col p { font-size: 9pt; line-height: 1.6; color: #444; }
+/* Footer table */
+.footer-table { width: 100%; border-collapse: collapse; margin-top: 40px; border-top: 2px solid #eee; padding-top: 0; }
+.footer-table td { width: 50%; vertical-align: top; padding-top: 24px; }
+.footer-table td:last-child { text-align: right; }
+.footer-table h4 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 1px; color: #999; margin-bottom: 12px; }
+.footer-table p { font-size: 9pt; line-height: 1.6; color: #444; }
 
-/* Sender specifics in footer */
-.sender-header { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-.sender-logo { max-height: 40px; }
-.sender-brand { font-size: 11pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; }
-
-/* Legal note */
-.legal-note { margin-top: 28px; font-size: 7.5pt; color: #999; line-height: 1.5; text-align: justify; display: block; width: 100%; clear: both; }
 
 /* Invoice page footer */
 .invoice-footer {
@@ -107,7 +102,7 @@ body {
   .invoice { margin: 10px; padding: 10px; }
   .inv-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
   .inv-title-area { text-align: left; }
-  .footer-cols { grid-template-columns: 1fr; gap: 20px; }
+  .footer-table td { display: block; width: 100%; text-align: left !important; }
   .totals-wrap { justify-content: stretch; }
   .totals { width: 100%; }
   .no-print { position: relative; top: auto; right: auto; padding: 10px; flex-wrap: wrap; gap: 6px; }
@@ -204,42 +199,34 @@ body {
     </div>
   </div>
 
-  <!-- SECCIÓN 5: PIE (2 COLUMNAS) -->
-  <div class="footer-cols">
-    <!-- Columna izquierda: DATOS DE PAGO -->
-    <div class="footer-col">
-      <h4>Datos de pago</h4>
-      <p>
-        <strong>Beneficiario:</strong> <?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?><br>
-        <strong>Banco:</strong> <?= e(getConfig('empresa_banco', EMPRESA_BANCO)) ?><br>
-        <strong>IBAN:</strong> <?= e(getConfig('empresa_iban', EMPRESA_IBAN)) ?><br>
-        <strong>Referencia:</strong> Factura <?= e($factura['numero']) ?>
-      </p>
-      <?php if ($factura['notas']): ?>
-        <h4 class="mt-2">Notas</h4>
-        <p style="font-size: 8.5pt; font-style: italic"><?= nl2br(e($factura['notas'])) ?></p>
-      <?php endif; ?>
-    </div>
-
-    <!-- Columna derecha: DATOS DEL EMISOR -->
-    <div class="footer-col" style="text-align:right">
-      <h4>Datos del emisor</h4>
-      <p style="font-size: 8.5pt">
-        <strong><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></strong><br>
-        <?= e(getConfig('empresa_nombre', defined('EMPRESA_NOMBRE') ? EMPRESA_NOMBRE : '')) ?><br>
-        CIF: <?= e(getConfig('empresa_cif', defined('EMPRESA_CIF') ? EMPRESA_CIF : '')) ?><br>
-        <?= e(getConfig('empresa_dir1', defined('EMPRESA_DIR1') ? EMPRESA_DIR1 : '')) ?><br>
-        <?= e(trim(getConfig('empresa_dir2', defined('EMPRESA_DIR2') ? EMPRESA_DIR2 : ''))) ?>
-      </p>
-    </div>
-  </div>
-
-  <!-- SECCIÓN 6: NOTA LEGAL LOPD -->
-  <?php if (getConfig('invoice_legal', '')): ?>
-  <div class="legal-note">
-    <?= nl2br(e(getConfig('invoice_legal', ''))) ?>
-  </div>
-  <?php endif; ?>
+  <!-- SECCIÓN 5: PIE (2 COLUMNAS con tabla) -->
+  <table class="footer-table">
+    <tr>
+      <td>
+        <h4>Datos de pago</h4>
+        <p>
+          <strong>Beneficiario:</strong> <?= e(getConfig('empresa_nombre', EMPRESA_NOMBRE)) ?><br>
+          <strong>Banco:</strong> <?= e(getConfig('empresa_banco', EMPRESA_BANCO)) ?><br>
+          <strong>IBAN:</strong> <?= e(getConfig('empresa_iban', EMPRESA_IBAN)) ?><br>
+          <strong>Referencia:</strong> Factura <?= e($factura['numero']) ?>
+        </p>
+        <?php if ($factura['notas']): ?>
+          <h4 style="margin-top:.6rem">Notas</h4>
+          <p style="font-size:8.5pt;font-style:italic"><?= nl2br(e($factura['notas'])) ?></p>
+        <?php endif; ?>
+      </td>
+      <td>
+        <h4>Datos del emisor</h4>
+        <p style="font-size:8.5pt">
+          <strong><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></strong><br>
+          <?= e(getConfig('empresa_nombre', defined('EMPRESA_NOMBRE') ? EMPRESA_NOMBRE : '')) ?><br>
+          CIF: <?= e(getConfig('empresa_cif', defined('EMPRESA_CIF') ? EMPRESA_CIF : '')) ?><br>
+          <?= e(getConfig('empresa_dir1', defined('EMPRESA_DIR1') ? EMPRESA_DIR1 : '')) ?><br>
+          <?= e(trim(getConfig('empresa_dir2', defined('EMPRESA_DIR2') ? EMPRESA_DIR2 : ''))) ?>
+        </p>
+      </td>
+    </tr>
+  </table>
 
   <!-- PIE DE PÁGINA: email y web -->
   <?php
@@ -257,7 +244,12 @@ body {
     <?php endif; ?>
   </div>
   <?php endif; ?>
-</div>
+</div><!-- /invoice -->
+
+<!-- SECCIÓN 6: NOTA LEGAL — fuera de .invoice, sin contexto de layout heredado -->
+<?php if (getConfig('invoice_legal', '')): ?>
+<div style="max-width:780px;margin:0 auto;padding:16px 20px 0;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;"><?= nl2br(e(getConfig('invoice_legal', ''))) ?></div>
+<?php endif; ?>
 </body>
 </html>
 <?php

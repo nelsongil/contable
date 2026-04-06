@@ -156,7 +156,11 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
               </option>
               <?php endforeach; ?>
             </select>
-            <div class="form-text">¿Cliente nuevo? <a href="/clientes/nuevo.php" target="_blank">Créalo aquí</a> y recarga.</div>
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm" style="color:var(--verde-a);border:1.5px solid var(--verde-a);border-radius:6px" data-bs-toggle="modal" data-bs-target="#modalNuevoCliente">
+                <i class="bi bi-person-plus me-1"></i>Nuevo cliente
+              </button>
+            </div>
           </div>
           <div class="col-md-6" id="clienteNifRow" style="<?= !($factura['cliente_id'] ?? 0) ? 'display:none' : '' ?>">
             <label class="form-label">NIF/CIF</label>
@@ -312,8 +316,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // ── Tom Select para búsqueda en el select de clientes ──
     if (typeof TomSelect !== 'undefined') {
-        new TomSelect('#selectCliente', { create: false, sortField: 'text' });
+        window._tomSelectCliente = new TomSelect('#selectCliente', { create: false, sortField: 'text' });
     }
+
+    // ── Modal nuevo cliente ────────────────────────────────
+    document.getElementById('btnGuardarCliente').addEventListener('click', async function() {
+        const btn    = this;
+        const nombre = document.getElementById('mc_nombre').value.trim();
+        const errEl  = document.getElementById('modalClienteError');
+        if (!nombre) { errEl.textContent = 'El nombre es obligatorio.'; errEl.classList.remove('d-none'); return; }
+        errEl.classList.add('d-none');
+        btn.disabled = true;
+        document.getElementById('spinnerMC').classList.remove('d-none');
+        document.getElementById('iconMC').classList.add('d-none');
+        const body = new URLSearchParams({
+            nombre:    nombre,
+            nif:       document.getElementById('mc_nif').value,
+            direccion: document.getElementById('mc_direccion').value,
+            ciudad:    document.getElementById('mc_ciudad').value,
+            cp:        document.getElementById('mc_cp').value,
+            provincia: document.getElementById('mc_provincia').value,
+            telefono:  document.getElementById('mc_telefono').value,
+            email:     document.getElementById('mc_email').value,
+            notas:     ''
+        });
+        try {
+            const resp = await fetch('/clientes/nuevo.php?inline=1', { method: 'POST', body });
+            const data = await resp.json();
+            if (data.ok) {
+                const ts    = window._tomSelectCliente;
+                const label = data.nombre + (data.nif ? ' — ' + data.nif : '');
+                const dir   = [data.direccion, data.cp, data.ciudad].filter(Boolean).join(', ');
+                ts.addOption({ value: String(data.id), text: label });
+                ts.setValue(String(data.id), true);
+                document.getElementById('clienteNif').value = data.nif || '';
+                document.getElementById('clienteDir').value = dir;
+                document.getElementById('clienteNifRow').style.display = '';
+                document.getElementById('clienteDirRow').style.display = '';
+                document.getElementById('clienteLibreRow').style.display = 'none';
+                bootstrap.Modal.getInstance(document.getElementById('modalNuevoCliente')).hide();
+            } else {
+                errEl.textContent = data.error || 'Error al crear el cliente.';
+                errEl.classList.remove('d-none');
+            }
+        } catch (e) {
+            errEl.textContent = 'Error de conexión.';
+            errEl.classList.remove('d-none');
+        }
+        btn.disabled = false;
+        document.getElementById('spinnerMC').classList.add('d-none');
+        document.getElementById('iconMC').classList.remove('d-none');
+    });
+    document.getElementById('mc_nombre').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnGuardarCliente').click(); }
+    });
+    document.getElementById('modalNuevoCliente').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('modalClienteError').classList.add('d-none');
+        ['mc_nombre','mc_nif','mc_direccion','mc_ciudad','mc_cp','mc_provincia','mc_telefono','mc_email'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+    });
+    document.getElementById('modalNuevoCliente').addEventListener('shown.bs.modal', function() {
+        document.getElementById('mc_nombre').focus();
+    });
 
     // ── Cálculo automático de totales ─────────────────────
     function fmt(v) {
@@ -390,5 +455,61 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- ── Modal: Nuevo cliente ─────────────────────────────────────────── -->
+<div class="modal fade" id="modalNuevoCliente" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Nuevo cliente</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalClienteError" class="alert alert-danger d-none py-2" style="font-size:.875rem"></div>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">Nombre / Razón social *</label>
+            <input type="text" id="mc_nombre" class="form-control" placeholder="Nombre o razón social">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">NIF / CIF / DNI</label>
+            <input type="text" id="mc_nif" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Dirección</label>
+            <input type="text" id="mc_direccion" class="form-control">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Ciudad</label>
+            <input type="text" id="mc_ciudad" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">C.P.</label>
+            <input type="text" id="mc_cp" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Provincia</label>
+            <input type="text" id="mc_provincia" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Teléfono</label>
+            <input type="text" id="mc_telefono" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" id="mc_email" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-gold" id="btnGuardarCliente">
+          <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerMC"></span>
+          <i class="bi bi-check-lg me-1" id="iconMC"></i>Crear cliente
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

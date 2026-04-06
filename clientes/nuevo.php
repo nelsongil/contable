@@ -6,13 +6,17 @@ require_once __DIR__ . '/../includes/auth.php';
 $id = (int)($_GET['id'] ?? 0);
 $c  = $id ? getCliente($id) : [];
 
+$inline = isset($_GET['inline']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = [
         post('nombre'), post('nif'), post('direccion'), post('ciudad'),
         post('cp'), post('provincia'), post('telefono'), post('email'), post('notas')
     ];
-    if (!$data[0]) { $error = 'El nombre es obligatorio.'; }
-    else {
+    if (!$data[0]) {
+        if ($inline) { header('Content-Type: application/json'); echo json_encode(['ok' => false, 'error' => 'El nombre es obligatorio.']); exit; }
+        $error = 'El nombre es obligatorio.';
+    } else {
         $db = getDB();
         if ($id) {
             $db->prepare("UPDATE clientes SET nombre=?,nif=?,direccion=?,ciudad=?,cp=?,provincia=?,telefono=?,email=?,notas=? WHERE id=?")
@@ -21,6 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $db->prepare("INSERT INTO clientes (nombre,nif,direccion,ciudad,cp,provincia,telefono,email,notas) VALUES (?,?,?,?,?,?,?,?,?)")
                ->execute($data);
+            if ($inline) {
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => true, 'id' => (int)$db->lastInsertId(),
+                    'nombre' => $data[0], 'nif' => $data[1],
+                    'direccion' => $data[2], 'cp' => $data[4], 'ciudad' => $data[3]]);
+                exit;
+            }
             flash('Cliente creado correctamente.');
         }
         redirect('/clientes/');

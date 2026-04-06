@@ -115,7 +115,7 @@ require_once __DIR__ . '/../includes/header.php';
     <span><i class="bi bi-file-earmark-pdf me-2"></i>Importar desde PDF <small class="text-warning ms-2" style="font-size:.72rem;font-weight:400">NUEVO</small></span>
     <i class="bi bi-chevron-down" id="pdfChevron"></i>
   </div>
-  <div id="pdfPanel">
+  <div id="pdfPanel" style="display:none">
     <div class="card-body">
       <p class="text-muted mb-3" style="font-size:.85rem">
         Sube la factura en PDF y los campos se rellenarán automáticamente gracias a la extracción local en el servidor.
@@ -167,7 +167,11 @@ require_once __DIR__ . '/../includes/header.php';
             </option>
             <?php endforeach; ?>
           </select>
-          <div class="form-text">¿Nuevo proveedor? <a href="/proveedores/nuevo.php" target="_blank">Créalo aquí</a></div>
+          <div class="mt-2">
+            <button type="button" class="btn btn-sm" style="color:var(--verde-a);border:1.5px solid var(--verde-a);border-radius:6px" data-bs-toggle="modal" data-bs-target="#modalNuevoProveedor">
+              <i class="bi bi-truck me-1"></i>Nuevo proveedor
+            </button>
+          </div>
         </div>
         <div class="col-md-4">
           <div class="form-floating">
@@ -486,6 +490,61 @@ document.addEventListener('DOMContentLoaded', function() {
         window._tomSelectProveedor = new TomSelect('#selectProveedor', { create: false, sortField: 'text' });
     }
 
+    // ── Modal nuevo proveedor ──────────────────────────────
+    document.getElementById('btnGuardarProveedor').addEventListener('click', async function() {
+        const btn    = this;
+        const nombre = document.getElementById('mp_nombre').value.trim();
+        const errEl  = document.getElementById('modalProveedorError');
+        if (!nombre) { errEl.textContent = 'El nombre es obligatorio.'; errEl.classList.remove('d-none'); return; }
+        errEl.classList.add('d-none');
+        btn.disabled = true;
+        document.getElementById('spinnerMP').classList.remove('d-none');
+        document.getElementById('iconMP').classList.add('d-none');
+        const body = new URLSearchParams({
+            nombre:    nombre,
+            nif:       document.getElementById('mp_nif').value,
+            direccion: document.getElementById('mp_direccion').value,
+            ciudad:    document.getElementById('mp_ciudad').value,
+            cp:        document.getElementById('mp_cp').value,
+            provincia: document.getElementById('mp_provincia').value,
+            telefono:  document.getElementById('mp_telefono').value,
+            email:     document.getElementById('mp_email').value,
+            notas:     ''
+        });
+        try {
+            const resp = await fetch('/proveedores/nuevo.php?inline=1', { method: 'POST', body });
+            const data = await resp.json();
+            if (data.ok) {
+                const ts    = window._tomSelectProveedor;
+                const label = data.nombre + (data.nif ? ' — ' + data.nif : '');
+                ts.addOption({ value: String(data.id), text: label });
+                ts.setValue(String(data.id), true);
+                bootstrap.Modal.getInstance(document.getElementById('modalNuevoProveedor')).hide();
+            } else {
+                errEl.textContent = data.error || 'Error al crear el proveedor.';
+                errEl.classList.remove('d-none');
+            }
+        } catch (e) {
+            errEl.textContent = 'Error de conexión.';
+            errEl.classList.remove('d-none');
+        }
+        btn.disabled = false;
+        document.getElementById('spinnerMP').classList.add('d-none');
+        document.getElementById('iconMP').classList.remove('d-none');
+    });
+    document.getElementById('mp_nombre').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnGuardarProveedor').click(); }
+    });
+    document.getElementById('modalNuevoProveedor').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('modalProveedorError').classList.add('d-none');
+        ['mp_nombre','mp_nif','mp_direccion','mp_ciudad','mp_cp','mp_provincia','mp_telefono','mp_email'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+    });
+    document.getElementById('modalNuevoProveedor').addEventListener('shown.bs.modal', function() {
+        document.getElementById('mp_nombre').focus();
+    });
+
     window.fmt = function(v) { return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     window.recalcCompra = function() {
         const base  = parseFloat(document.getElementById('baseInput').value)    || 0;
@@ -517,6 +576,62 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<!-- ── Modal: Nuevo proveedor ────────────────────────────────────────── -->
+<div class="modal fade" id="modalNuevoProveedor" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Nuevo proveedor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="modalProveedorError" class="alert alert-danger d-none py-2" style="font-size:.875rem"></div>
+        <div class="row g-3">
+          <div class="col-md-8">
+            <label class="form-label">Nombre / Razón social *</label>
+            <input type="text" id="mp_nombre" class="form-control" placeholder="Nombre o razón social">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">NIF / CIF / DNI</label>
+            <input type="text" id="mp_nif" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Dirección</label>
+            <input type="text" id="mp_direccion" class="form-control">
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Ciudad</label>
+            <input type="text" id="mp_ciudad" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">C.P.</label>
+            <input type="text" id="mp_cp" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Provincia</label>
+            <input type="text" id="mp_provincia" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Teléfono</label>
+            <input type="text" id="mp_telefono" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Email</label>
+            <input type="email" id="mp_email" class="form-control">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-gold" id="btnGuardarProveedor">
+          <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerMP"></span>
+          <i class="bi bi-truck me-1" id="iconMP"></i>Crear proveedor
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
 
