@@ -245,9 +245,9 @@ body {
   </div>
   <?php endif; ?>
 
-  <!-- SECCIÓN 6: NOTA LEGAL LOPD — tabla 1 celda: layout más fiable en motor PDF Chrome -->
-  <?php if (getConfig('invoice_legal', '')): ?>
-  <table style="width:100%;border-collapse:collapse;margin-top:20px;"><tr><td style="border-top:1px solid #eee;padding-top:12px;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;"><?= nl2br(e(getConfig('invoice_legal', ''))) ?></td></tr></table>
+  <!-- SECCIÓN 6: NOTA LEGAL LOPD — tabla 1 celda, sin nl2br para que fluya al ancho completo -->
+  <?php if ($legal = getConfig('invoice_legal', '')): ?>
+  <table style="width:100%;border-collapse:collapse;margin-top:20px;"><tr><td style="border-top:1px solid #eee;padding-top:12px;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;"><?= e(str_replace(["\r\n", "\r", "\n"], ' ', $legal)) ?></td></tr></table>
   <?php endif; ?>
 </div><!-- /invoice -->
 </body>
