@@ -41,7 +41,7 @@ body {
   .invoice { margin: 0 auto; }
 }
 
-.invoice { max-width: 780px; margin: 60px auto; padding: 20px; position: relative; }
+.invoice { max-width: 780px; margin: 12px auto; padding: 20px; position: relative; }
 
 /* Header */
 .inv-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid <?= getConfig('invoice_color_accent', '#C9A84C') ?>; }
@@ -54,7 +54,7 @@ body {
 /* Section 2: Client */
 .client-block { margin-bottom: 40px; padding: 10px 0; }
 .client-label { font-size: 8pt; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-.client-name  { font-size: 16pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; margin-bottom: 4px; }
+.client-name  { font-size: 13pt; font-weight: 700; color: <?= getConfig('invoice_color_primary', '#1A2E2A') ?>; margin-bottom: 4px; }
 .client-details { font-size: 10pt; color: #444; line-height: 1.5; }
 
 /* Lines table */
@@ -115,7 +115,6 @@ body {
 <body>
 
 <div class="no-print">
-  <a href="ver.php?id=<?= $id ?>" class="btn-back">← Volver</a>
   <button onclick="window.print()" class="btn-print">🖨 Imprimir / Guardar PDF</button>
 </div>
 
@@ -127,7 +126,7 @@ body {
       <img src="<?= $logo ?>?t=<?= time() ?>" class="logo-img" alt="Logo">
       <?php endif; ?>
       <div>
-        <div style="font-size:13pt;font-weight:700;color:<?= getConfig('invoice_color_primary', '#1A2E2A') ?>;line-height:1.2;"><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></div>
+        <div style="font-size:11pt;font-weight:700;color:<?= getConfig('invoice_color_primary', '#1A2E2A') ?>;line-height:1.2;"><?= e(getConfig('empresa_sociedad', defined('EMPRESA_SOCIEDAD') ? EMPRESA_SOCIEDAD : '')) ?></div>
         <div style="font-size:8.5pt;color:#666;margin-top:3px;"><?= e(getConfig('empresa_nombre', defined('EMPRESA_NOMBRE') ? EMPRESA_NOMBRE : '')) ?></div>
         <div style="font-size:8pt;color:#888;">CIF: <?= e(getConfig('empresa_cif', defined('EMPRESA_CIF') ? EMPRESA_CIF : '')) ?></div>
       </div>
@@ -210,6 +209,9 @@ body {
           <strong>IBAN:</strong> <?= e(getConfig('empresa_iban', EMPRESA_IBAN)) ?><br>
           <strong>Referencia:</strong> Factura <?= e($factura['numero']) ?>
         </p>
+        <?php if ($legal = getConfig('invoice_legal', '')): ?>
+        <p style="font-size:7pt;color:#aaa;line-height:1.4;margin-top:14px;text-align:justify;"><?= e(str_replace(["\r\n", "\r", "\n"], ' ', $legal)) ?></p>
+        <?php endif; ?>
       </td>
       <td>
         <h4>Datos del emisor</h4>
@@ -241,10 +243,6 @@ body {
   </div>
   <?php endif; ?>
 
-  <!-- SECCIÓN 6: NOTA LEGAL LOPD — tabla 1 celda, sin nl2br para que fluya al ancho completo -->
-  <?php if ($legal = getConfig('invoice_legal', '')): ?>
-  <table style="width:100%;border-collapse:collapse;margin-top:20px;"><tr><td style="border-top:1px solid #eee;padding-top:12px;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;"><?= e(str_replace(["\r\n", "\r", "\n"], ' ', $legal)) ?></td></tr></table>
-  <?php endif; ?>
 </div><!-- /invoice -->
 </body>
 </html>
