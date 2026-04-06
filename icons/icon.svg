@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fondo indigo con esquinas redondeadas -->
+  <rect width="512" height="512" rx="96" fill="#4338CA"/>
+  <!-- Libro / lomo -->
+  <rect x="136" y="104" width="240" height="304" rx="18" fill="#F59E0B"/>
+  <rect x="136" y="104" width="36" height="304" rx="14" fill="#D97706"/>
+  <!-- Líneas del libro (entradas contables) -->
+  <rect x="188" y="172" width="148" height="13" rx="6.5" fill="#312E81" opacity="0.75"/>
+  <rect x="188" y="210" width="148" height="13" rx="6.5" fill="#312E81" opacity="0.75"/>
+  <rect x="188" y="248" width="114" height="13" rx="6.5" fill="#312E81" opacity="0.75"/>
+  <rect x="188" y="286" width="148" height="13" rx="6.5" fill="#312E81" opacity="0.75"/>
+  <!-- Símbolo euro en la esquina inferior derecha del libro -->
+  <circle cx="320" cy="352" r="52" fill="#312E81" opacity="0.18"/>
+  <text x="320" y="370" text-anchor="middle" font-family="Georgia,serif" font-size="62" font-weight="700" fill="white">€</text>
+</svg>

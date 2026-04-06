@@ -183,5 +183,12 @@ function makeSortable(table) {
     });
 }
 </script>
+
+<script>
+// ─── PWA: Registro del Service Worker ───
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
 </body>
 </html>
