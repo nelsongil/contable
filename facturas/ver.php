@@ -24,7 +24,7 @@ if ($pdf) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Factura <?= e($factura['numero']) ?></title>
+<title><?= e($factura['numero']) ?> - <?= e($factura['cliente_nombre']) ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -245,11 +245,9 @@ body {
   </div>
   <?php endif; ?>
 
-  <!-- SECCIÓN 6: NOTA LEGAL LOPD — dentro de .invoice, último hijo -->
+  <!-- SECCIÓN 6: NOTA LEGAL LOPD — tabla 1 celda: layout más fiable en motor PDF Chrome -->
   <?php if (getConfig('invoice_legal', '')): ?>
-  <div style="display:block;width:100%;box-sizing:border-box;margin-top:20px;padding-top:12px;border-top:1px solid #eee;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;">
-    <?= nl2br(e(getConfig('invoice_legal', ''))) ?>
-  </div>
+  <table style="width:100%;border-collapse:collapse;margin-top:20px;"><tr><td style="border-top:1px solid #eee;padding-top:12px;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;"><?= nl2br(e(getConfig('invoice_legal', ''))) ?></td></tr></table>
   <?php endif; ?>
 </div><!-- /invoice -->
 </body>
