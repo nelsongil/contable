@@ -244,12 +244,14 @@ body {
     <?php endif; ?>
   </div>
   <?php endif; ?>
-</div><!-- /invoice -->
 
-<!-- SECCIÓN 6: NOTA LEGAL — fuera de .invoice, sin contexto de layout heredado -->
-<?php if (getConfig('invoice_legal', '')): ?>
-<div style="max-width:780px;margin:0 auto;padding:16px 20px 0;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;"><?= nl2br(e(getConfig('invoice_legal', ''))) ?></div>
-<?php endif; ?>
+  <!-- SECCIÓN 6: NOTA LEGAL LOPD — dentro de .invoice, último hijo -->
+  <?php if (getConfig('invoice_legal', '')): ?>
+  <div style="display:block;width:100%;box-sizing:border-box;margin-top:20px;padding-top:12px;border-top:1px solid #eee;font-size:7.5pt;color:#999;line-height:1.5;text-align:justify;">
+    <?= nl2br(e(getConfig('invoice_legal', ''))) ?>
+  </div>
+  <?php endif; ?>
+</div><!-- /invoice -->
 </body>
 </html>
 <?php
