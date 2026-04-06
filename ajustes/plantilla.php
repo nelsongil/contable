@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     setConfig('invoice_font',          post('invoice_font'));
     setConfig('invoice_footer',        post('invoice_footer'));
     setConfig('invoice_conditions',    post('invoice_conditions'));
-    setConfig('invoice_legal',         post('invoice_legal'));
+    setConfig('invoice_legal',         str_replace(["\r\n", "\r", "\n"], ' ', post('invoice_legal')));
 
     flash('Personalización de plantilla guardada.');
     redirect('/ajustes/plantilla.php');

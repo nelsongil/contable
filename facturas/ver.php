@@ -114,9 +114,6 @@ body {
 </head>
 <body>
 
-<div class="no-print">
-  <button onclick="window.print()" class="btn-print">🖨 Imprimir / Guardar PDF</button>
-</div>
 
 <div class="invoice">
   <!-- SECCIÓN 1: CABECERA -->
@@ -209,9 +206,6 @@ body {
           <strong>IBAN:</strong> <?= e(getConfig('empresa_iban', EMPRESA_IBAN)) ?><br>
           <strong>Referencia:</strong> Factura <?= e($factura['numero']) ?>
         </p>
-        <?php if ($legal = getConfig('invoice_legal', '')): ?>
-        <p style="font-size:7pt;color:#aaa;line-height:1.4;margin-top:14px;text-align:justify;"><?= e(str_replace(["\r\n", "\r", "\n"], ' ', $legal)) ?></p>
-        <?php endif; ?>
       </td>
       <td>
         <h4>Datos del emisor</h4>
@@ -224,6 +218,9 @@ body {
         </p>
       </td>
     </tr>
+    <?php if ($legal = getConfig('invoice_legal', '')): ?>
+    <tr><td colspan="2" style="padding-top:14px;font-size:7pt;color:#aaa;line-height:1.4;text-align:justify;"><?= e($legal) ?></td></tr>
+    <?php endif; ?>
   </table>
 
   <!-- PIE DE PÁGINA: email y web -->
