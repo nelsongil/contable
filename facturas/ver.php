@@ -24,7 +24,7 @@ if ($pdf) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= e($factura['numero']) ?> - <?= e($factura['cliente_nombre']) ?></title>
+<title><?= e(preg_replace('/^[A-Za-z]+/', '', $factura['numero'])) ?> - <?= e($factura['cliente_nombre']) ?></title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
