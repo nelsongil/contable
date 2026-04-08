@@ -29,6 +29,9 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
       <option value="<?= $t ?>" <?= $trim==$t?'selected':'' ?>>T<?= $t ?></option>
       <?php endfor; ?>
     </select>
+    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalExportar">
+      <i class="bi bi-file-earmark-arrow-down me-1"></i>Exportar CSV
+    </button>
     <a href="nueva.php" class="btn btn-gold btn-sm"><i class="bi bi-plus-lg me-1"></i>Registrar compra</a>
   </div>
 </div>
@@ -97,7 +100,29 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
 document.addEventListener('DOMContentLoaded', () => {
     filterTable('compraSearch', 'comprasTable');
     makeSortable(document.getElementById('comprasTable'));
+    initExportModal('recibidas');
 });
 </script>
+
+<!-- Modal exportar CSV -->
+<div class="modal fade" id="modalExportar" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-file-earmark-arrow-down me-2"></i>Exportar facturas recibidas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <?php include __DIR__ . '/../libros/_exportar_modal.php'; ?>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-gold" onclick="descargarCsv('recibidas')">
+          <i class="bi bi-download me-1"></i>Descargar CSV
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

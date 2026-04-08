@@ -150,17 +150,18 @@ function getLineasFactura(int $facturaId): array {
     $st->execute([$facturaId]);
     return $st->fetchAll();
 }
-function getFacturasRecibidas(int $anio = 0, int $trim = 0): array {
-    $db   = getDB();
-    $where = ["1=1"];
+function getFacturasRecibidas(int $anio = 0, int $trim = 0, string $categoria = ''): array {
+    $db     = getDB();
+    $where  = ["1=1"];
     $params = [];
-    if ($anio) { $where[] = "YEAR(fecha)=?"; $params[] = $anio; }
-    if ($trim) { $where[] = "trimestre=?";   $params[] = $trim; }
+    if ($anio)      { $where[] = "YEAR(fr.fecha)=?";  $params[] = $anio; }
+    if ($trim)      { $where[] = "fr.trimestre=?";    $params[] = $trim; }
+    if ($categoria) { $where[] = "fr.categoria=?";    $params[] = $categoria; }
     $sql = "SELECT fr.*, p.nombre AS proveedor_nombre_actual
             FROM facturas_recibidas fr
             LEFT JOIN proveedores p ON p.id = fr.proveedor_id
             WHERE " . implode(' AND ', $where) . "
-            ORDER BY fecha DESC";
+            ORDER BY fr.fecha DESC";
     $st = $db->prepare($sql);
     $st->execute($params);
     return $st->fetchAll();

@@ -63,9 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $proveedor  = $provId ? getProveedor($provId) : null;
     $fecha      = post('fecha') ?: date('Y-m-d');
     $numero     = post('numero');
+    $categoria  = post('categoria', 'general');
     $base       = (float)str_replace(',', '.', post('base_imponible'));
     $pct_iva    = (float)post('pct_iva', 21);
     $cuota_iva  = round($base * $pct_iva / 100, 2);
+    $pct_irpf   = (float)post('pct_irpf', 0);
+    $cuota_irpf = round($base * $pct_irpf / 100, 2);
     $total      = $base + $cuota_iva;
     $descripcion= post('descripcion');
     $notas      = post('notas');
@@ -78,17 +81,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data = [$fecha, $provId ?: null,
                  $proveedor['nombre'] ?? post('proveedor_nombre'),
                  $proveedor['nif'] ?? '',
-                 $base, $pct_iva, $cuota_iva, $total,
-                 $descripcion, $notas, $trim, $numero];
+                 $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf, $total,
+                 $descripcion, $notas, $trim, $numero, $categoria];
         if ($isEdit) {
             $db->prepare("UPDATE facturas_recibidas SET fecha=?,proveedor_id=?,proveedor_nombre=?,proveedor_nif=?,
-                          base_imponible=?,porcentaje_iva=?,cuota_iva=?,total=?,descripcion=?,notas=?,trimestre=?,numero=?
+                          base_imponible=?,porcentaje_iva=?,cuota_iva=?,porcentaje_irpf=?,cuota_irpf=?,total=?,
+                          descripcion=?,notas=?,trimestre=?,numero=?,categoria=?
                           WHERE id=?")->execute([...$data, $id]);
             flash('Factura actualizada.');
         } else {
             $db->prepare("INSERT INTO facturas_recibidas
-                          (fecha,proveedor_id,proveedor_nombre,proveedor_nif,base_imponible,porcentaje_iva,cuota_iva,total,descripcion,notas,trimestre,numero)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")->execute($data);
+                          (fecha,proveedor_id,proveedor_nombre,proveedor_nif,base_imponible,porcentaje_iva,cuota_iva,porcentaje_irpf,cuota_irpf,total,descripcion,notas,trimestre,numero,categoria)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")->execute($data);
             flash('Factura de compra registrada.');
         }
         redirect('/compras/');
@@ -180,6 +184,16 @@ require_once __DIR__ . '/../includes/header.php';
           </div>
         </div>
         <div class="col-md-4">
+          <label class="form-label">Categoría</label>
+          <select name="categoria" id="selectCategoria" class="form-select" onchange="onCategoriaChange()">
+            <?php
+            $cats = ['general'=>'General','arrendamiento'=>'Arrendamiento (alquiler)','servicios'=>'Servicios profesionales','herramientas'=>'Herramientas / Software','suministros'=>'Suministros (luz, agua…)','otros'=>'Otros'];
+            foreach ($cats as $v => $l): ?>
+            <option value="<?= $v ?>" <?= ($fr['categoria'] ?? 'general') === $v ? 'selected' : '' ?>><?= $l ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-md-4">
           <div class="form-floating">
             <input type="date" name="fecha" id="inputFecha" class="form-control" placeholder="Fecha" required value="<?= e($fr['fecha'] ?? date('Y-m-d')) ?>">
             <label for="inputFecha">Fecha *</label>
@@ -192,21 +206,37 @@ require_once __DIR__ . '/../includes/header.php';
             <label for="baseInput">Base imponible *</label>
           </div>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">IVA %</label>
           <select name="pct_iva" class="form-select" id="pctIvaCompra" onchange="recalcCompra()">
-            <?php 
+            <?php
               $defIva = (int)getConfig('empresa_iva_def', 21);
-              foreach ([21, 10, 4, 0] as $t): 
+              foreach ([21, 10, 4, 0] as $t):
             ?>
             <option value="<?= $t ?>" <?= ($fr['porcentaje_iva'] ?? $defIva) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
             <?php endforeach; ?>
           </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
           <label class="form-label">Cuota IVA</label>
           <div class="input-group">
             <input type="text" class="form-control" id="cuotaIvaDisplay" readonly>
+            <span class="input-group-text">€</span>
+          </div>
+        </div>
+        <!-- IRPF (arrendamientos) -->
+        <div class="col-md-3" id="rowIrpf" style="display:none">
+          <label class="form-label">Ret. IRPF %</label>
+          <select name="pct_irpf" class="form-select" id="pctIrpfCompra" onchange="recalcCompra()">
+            <?php foreach ([19, 15, 7] as $t): ?>
+            <option value="<?= $t ?>" <?= ($fr['porcentaje_irpf'] ?? 0) == $t ? 'selected' : '' ?>><?= $t ?>%</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div class="col-md-3" id="rowCuotaIrpf" style="display:none">
+          <label class="form-label">Cuota retención</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="cuotaIrpfDisplay" readonly>
             <span class="input-group-text">€</span>
           </div>
         </div>
@@ -547,11 +577,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.fmt = function(v) { return v.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
     window.recalcCompra = function() {
-        const base  = parseFloat(document.getElementById('baseInput').value)    || 0;
-        const pct   = parseFloat(document.getElementById('pctIvaCompra').value) || 0;
-        const cuota = Math.round(base * pct / 100 * 100) / 100;
-        document.getElementById('cuotaIvaDisplay').value = window.fmt(cuota);
-        document.getElementById('totalDisplay').value    = window.fmt(base + cuota);
+        const base     = parseFloat(document.getElementById('baseInput').value)    || 0;
+        const pctIva   = parseFloat(document.getElementById('pctIvaCompra').value) || 0;
+        const cuotaIva = Math.round(base * pctIva / 100 * 100) / 100;
+        document.getElementById('cuotaIvaDisplay').value = window.fmt(cuotaIva);
+
+        const rowIrpf = document.getElementById('rowIrpf');
+        if (rowIrpf && rowIrpf.style.display !== 'none') {
+            const pctIrpf   = parseFloat(document.getElementById('pctIrpfCompra').value) || 0;
+            const cuotaIrpf = Math.round(base * pctIrpf / 100 * 100) / 100;
+            document.getElementById('cuotaIrpfDisplay').value = window.fmt(cuotaIrpf);
+        }
+
+        document.getElementById('totalDisplay').value = window.fmt(base + cuotaIva);
+    }
+    window.onCategoriaChange = function() {
+        const cat    = document.getElementById('selectCategoria').value;
+        const show   = cat === 'arrendamiento';
+        document.getElementById('rowIrpf').style.display      = show ? '' : 'none';
+        document.getElementById('rowCuotaIrpf').style.display = show ? '' : 'none';
+        if (!show) {
+            // Reset pct_irpf hidden so it sends 0
+            const sel = document.getElementById('pctIrpfCompra');
+            if (sel) sel.disabled = !show;
+        }
+        window.recalcCompra();
     }
     window.togglePdfPanel = function() {
         const panel   = document.getElementById('pdfPanel');
@@ -560,6 +610,7 @@ document.addEventListener('DOMContentLoaded', function() {
         panel.style.display  = hidden ? '' : 'none';
         chevron.className = hidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
     }
+    window.onCategoriaChange();
     window.recalcCompra();
 
     // ── Spinner en submit ────────────────────────────────

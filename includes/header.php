@@ -493,29 +493,37 @@ if ($update && $update['version'] !== $dismissed):
     <i class="bi bi-truck"></i> Proveedores
   </a>
 
+  <div class="nav-section">Informes</div>
   <?php if (getConfig('modulo_empleados', false)): ?>
-  <div class="nav-section">Empleados</div>
   <a href="/empleados/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/') && !str_contains($_SERVER['REQUEST_URI'],'retenciones') && !str_contains($_SERVER['REQUEST_URI'],'modelo111') ? 'active' : '' ?>">
     <i class="bi bi-person-badge"></i> Empleados
   </a>
-  <a href="/empleados/retenciones.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/retenciones') ? 'active' : '' ?>">
-    <i class="bi bi-calendar3"></i> Retenciones mensuales
+  <?php endif; ?>
+  <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') && !str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') && !str_contains($_SERVER['REQUEST_URI'],'/libros/modelo') ? 'active' : '' ?>">
+    <i class="bi bi-journal-text"></i> Libros contables
   </a>
+  <?php if (getConfig('modulo_empleados', false)): ?>
   <a href="/empleados/modelo111.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/modelo111') ? 'active' : '' ?>">
     <i class="bi bi-file-earmark-text"></i> Modelo 111
   </a>
   <?php endif; ?>
-
-  <div class="nav-section">Informes</div>
-  <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') && !str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') && !str_contains($_SERVER['REQUEST_URI'],'/libros/modelo347') ? 'active' : '' ?>">
-    <i class="bi bi-journal-text"></i> Libros contables
+  <a href="/libros/modelo115.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo115') ? 'active' : '' ?>">
+    <i class="bi bi-file-earmark-text"></i> Modelo 115
   </a>
-  <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">
-    <i class="bi bi-bar-chart"></i> Resumen fiscal
+  <a href="/libros/modelo130.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo130') ? 'active' : '' ?>">
+    <i class="bi bi-file-earmark-text"></i> Modelo 130
   </a>
   <a href="/libros/modelo347.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo347') ? 'active' : '' ?>">
     <i class="bi bi-people"></i> Modelo 347
   </a>
+  <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">
+    <i class="bi bi-bar-chart"></i> Resumen fiscal
+  </a>
+  <?php if (getConfig('modulo_empleados', false)): ?>
+  <a href="/empleados/retenciones.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/retenciones') ? 'active' : '' ?>">
+    <i class="bi bi-calendar3"></i> Retenciones mensuales
+  </a>
+  <?php endif; ?>
 
   <div class="nav-section">Configuración</div>
   <a href="/ajustes/empresa.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>">

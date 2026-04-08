@@ -2,9 +2,13 @@
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 
-$anio = (int)get('anio', date('Y'));
+$anio        = (int)get('anio', 0);
+$trim        = (int)get('trim', 0);
+$fecha_desde = get('fecha_desde');
+$fecha_hasta = get('fecha_hasta');
+$tipo        = get('tipo', 'ambas'); // emitidas | recibidas | ambas
 
-// ── Copia de seguridad SQL ──────────────────────────────────
+// ── Copia de seguridad SQL ──────────────────────────────────────────────────
 if (get('backup') === '1') {
     try {
         $sql = generateSQLDump();
@@ -17,56 +21,124 @@ if (get('backup') === '1') {
     }
 }
 
-// Si se pide descarga
+// ── Descarga CSV ─────────────────────────────────────────────────────────────
 if (get('download') === '1') {
-    // Necesita PhpSpreadsheet - si no está instalado, genera CSV
-    $ventas  = getFacturasEmitidas($anio);
-    $compras = getFacturasRecibidas($anio);
+    $db = getDB();
 
-    header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="LibroContable' . $anio . '.csv"');
-    echo "\xEF\xBB\xBF"; // BOM UTF-8
+    // Construir condiciones según el período (params independientes por tabla)
+    $whereEmit  = ["fe.estado != 'cancelada'"];
+    $whereRecib = ["1=1"];
+    $paramsE    = [];
+    $paramsR    = [];
 
-    echo "LIBRO DE VENTAS $anio\r\n";
-    echo "Nº Factura,Fecha,Trimestre,Cliente,NIF,Base Imponible,IVA %,Cuota IVA,Retención IRPF,Total,Líquido,Estado\r\n";
-    foreach ($ventas as $f) {
-        echo implode(',', [
-            $f['numero'],
-            date('d/m/Y', strtotime($f['fecha'])),
-            'T'.$f['trimestre'],
-            '"'.str_replace('"','""',$f['cliente_nombre']).'"',
-            $f['cliente_nif'],
-            number_format($f['base_imponible'],2,'.',','),
-            $f['porcentaje_iva'].'%',
-            number_format($f['cuota_iva'],2,'.',','),
-            number_format($f['cuota_irpf'],2,'.',','),
-            number_format($f['total'],2,'.',','),
-            number_format($f['liquido'],2,'.',','),
-            $f['estado'],
-        ]) . "\r\n";
+    if ($anio && !$fecha_desde) {
+        $whereEmit[]  = "YEAR(fe.fecha) = ?";  $paramsE[] = $anio;
+        $whereRecib[] = "YEAR(fr.fecha) = ?";  $paramsR[] = $anio;
+    }
+    if ($trim) {
+        $whereEmit[]  = "fe.trimestre = ?";    $paramsE[] = $trim;
+        $whereRecib[] = "fr.trimestre = ?";    $paramsR[] = $trim;
+    }
+    if ($fecha_desde) {
+        $whereEmit[]  = "fe.fecha >= ?";       $paramsE[] = $fecha_desde;
+        $whereRecib[] = "fr.fecha >= ?";       $paramsR[] = $fecha_desde;
+    }
+    if ($fecha_hasta) {
+        $whereEmit[]  = "fe.fecha <= ?";       $paramsE[] = $fecha_hasta;
+        $whereRecib[] = "fr.fecha <= ?";       $paramsR[] = $fecha_hasta;
     }
 
-    echo "\r\n";
-    echo "LIBRO DE COMPRAS $anio\r\n";
-    echo "Nº Factura,Fecha,Trimestre,Proveedor,NIF,Base Imponible,IVA %,Cuota IVA,Total,Descripción\r\n";
-    foreach ($compras as $f) {
-        echo implode(',', [
-            '"'.str_replace('"','""',$f['numero']).'"',
-            date('d/m/Y', strtotime($f['fecha'])),
-            'T'.$f['trimestre'],
-            '"'.str_replace('"','""',$f['proveedor_nombre']).'"',
-            $f['proveedor_nif'],
-            number_format($f['base_imponible'],2,'.',','),
-            $f['porcentaje_iva'].'%',
-            number_format($f['cuota_iva'],2,'.',','),
-            number_format($f['total'],2,'.',','),
-            '"'.str_replace('"','""',$f['descripcion']).'"',
-        ]) . "\r\n";
+    // Nombre del archivo
+    if ($fecha_desde && $fecha_hasta) {
+        $sufijo = date('d-m-Y', strtotime($fecha_desde)) . '_' . date('d-m-Y', strtotime($fecha_hasta));
+    } elseif ($trim && $anio) {
+        $sufijo = "T{$trim}_{$anio}";
+    } elseif ($anio) {
+        $sufijo = $anio;
+    } else {
+        $sufijo = 'todo';
+    }
+    $nombre = "facturas_{$tipo}_{$sufijo}.csv";
+
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $nombre . '"');
+    echo "\xEF\xBB\xBF"; // BOM UTF-8
+
+    // ── Facturas emitidas ──
+    if ($tipo === 'emitidas' || $tipo === 'ambas') {
+        $stE = $db->prepare(
+            "SELECT fe.numero, fe.fecha, fe.trimestre,
+                    fe.cliente_nombre, fe.cliente_nif,
+                    fe.base_imponible, fe.porcentaje_iva, fe.cuota_iva,
+                    fe.cuota_irpf, fe.total, fe.liquido, fe.estado
+             FROM facturas_emitidas fe
+             WHERE " . implode(' AND ', $whereEmit) . "
+             ORDER BY fe.fecha, fe.numero"
+        );
+        $stE->execute($paramsE);
+        $ventas = $stE->fetchAll();
+
+        echo "FACTURAS EMITIDAS\r\n";
+        echo "Nº Factura,Fecha,Trimestre,Cliente,NIF,Base Imponible,IVA %,Cuota IVA,Retención IRPF,Total,Líquido,Estado\r\n";
+        foreach ($ventas as $f) {
+            echo implode(',', [
+                '"' . str_replace('"', '""', $f['numero']) . '"',
+                date('d/m/Y', strtotime($f['fecha'])),
+                'T' . $f['trimestre'],
+                '"' . str_replace('"', '""', $f['cliente_nombre']) . '"',
+                $f['cliente_nif'],
+                number_format($f['base_imponible'], 2, '.', ''),
+                $f['porcentaje_iva'] . '%',
+                number_format($f['cuota_iva'], 2, '.', ''),
+                number_format($f['cuota_irpf'], 2, '.', ''),
+                number_format($f['total'], 2, '.', ''),
+                number_format($f['liquido'], 2, '.', ''),
+                $f['estado'],
+            ]) . "\r\n";
+        }
+        echo "\r\n";
+    }
+
+    // ── Facturas recibidas ──
+    if ($tipo === 'recibidas' || $tipo === 'ambas') {
+        $stR = $db->prepare(
+            "SELECT fr.numero, fr.fecha, fr.trimestre,
+                    fr.proveedor_nombre, fr.proveedor_nif,
+                    fr.categoria, fr.base_imponible,
+                    fr.porcentaje_iva, fr.cuota_iva,
+                    fr.porcentaje_irpf, fr.cuota_irpf,
+                    fr.total, fr.descripcion
+             FROM facturas_recibidas fr
+             WHERE " . implode(' AND ', $whereRecib) . "
+             ORDER BY fr.fecha, fr.numero"
+        );
+        $stR->execute($paramsR);
+        $compras = $stR->fetchAll();
+
+        echo "FACTURAS RECIBIDAS\r\n";
+        echo "Nº Factura,Fecha,Trimestre,Proveedor,NIF,Categoría,Base Imponible,IVA %,Cuota IVA,Ret. IRPF %,Cuota IRPF,Total,Descripción\r\n";
+        foreach ($compras as $f) {
+            echo implode(',', [
+                '"' . str_replace('"', '""', $f['numero']) . '"',
+                date('d/m/Y', strtotime($f['fecha'])),
+                'T' . $f['trimestre'],
+                '"' . str_replace('"', '""', $f['proveedor_nombre']) . '"',
+                $f['proveedor_nif'],
+                $f['categoria'],
+                number_format($f['base_imponible'], 2, '.', ''),
+                $f['porcentaje_iva'] . '%',
+                number_format($f['cuota_iva'], 2, '.', ''),
+                $f['porcentaje_irpf'] . '%',
+                number_format($f['cuota_irpf'], 2, '.', ''),
+                number_format($f['total'], 2, '.', ''),
+                '"' . str_replace('"', '""', $f['descripcion']) . '"',
+            ]) . "\r\n";
+        }
     }
     exit;
 }
 
-// Página normal
+// ── Página normal ─────────────────────────────────────────────────────────────
 $pageTitle = 'Exportar datos';
 require_once __DIR__ . '/../includes/header.php';
 ?>
@@ -78,26 +150,78 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="row g-3" style="max-width:700px">
   <div class="col-12">
     <div class="card">
-      <div class="card-header"><i class="bi bi-download me-2"></i>Exportar libro contable</div>
+      <div class="card-header"><i class="bi bi-download me-2"></i>Exportar facturas a CSV</div>
       <div class="card-body">
-        <p class="text-muted mb-3">Descarga un CSV con todos los datos del año seleccionado, listo para importar en Excel.</p>
-        <div class="d-flex gap-3 align-items-end">
-          <div>
+        <p class="text-muted mb-3" style="font-size:.88rem">Descarga las facturas filtradas en formato CSV compatible con Excel.</p>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Tipo</label>
+            <select class="form-select" id="expTipo">
+              <option value="ambas">Emitidas + Recibidas</option>
+              <option value="emitidas">Solo emitidas</option>
+              <option value="recibidas">Solo recibidas</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Período</label>
+            <select class="form-select" id="expPeriodoSel" onchange="togglePeriodo()">
+              <option value="anio">Año completo</option>
+              <option value="trim">Trimestre</option>
+              <option value="rango">Rango de fechas</option>
+              <option value="todo">Todo</option>
+            </select>
+          </div>
+
+          <div class="col-md-6" id="rowAnio">
             <label class="form-label">Año</label>
             <select class="form-select" id="selAnio">
               <?php foreach ([date('Y'), date('Y')-1, date('Y')-2] as $y): ?>
-              <option value="<?= $y ?>" <?= $y==$anio?'selected':'' ?>><?= $y ?></option>
+              <option value="<?= $y ?>"><?= $y ?></option>
               <?php endforeach; ?>
             </select>
           </div>
-          <button class="btn btn-gold" onclick="location.href='exportar.php?download=1&anio='+document.getElementById('selAnio').value">
-            <i class="bi bi-file-earmark-arrow-down me-2"></i>Descargar CSV
-          </button>
-        </div>
-        <div class="alert alert-success mt-3 mb-0" style="font-size:.85rem">
-          <i class="bi bi-info-circle me-1"></i>
-          El archivo CSV se puede abrir directamente en Excel. Para importarlo en el Libro Contable Excel que ya tienes,
-          abre el CSV, copia las filas de datos y pégalas en las hojas VENTAS / COMPRAS.
+
+          <div id="rowTrim" style="display:none" class="col-12">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label">Año</label>
+                <select class="form-select" id="selAnioTrim">
+                  <?php foreach ([date('Y'), date('Y')-1, date('Y')-2] as $y): ?>
+                  <option value="<?= $y ?>"><?= $y ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Trimestre</label>
+                <select class="form-select" id="selTrim">
+                  <option value="1">T1 (ene–mar)</option>
+                  <option value="2">T2 (abr–jun)</option>
+                  <option value="3">T3 (jul–sep)</option>
+                  <option value="4">T4 (oct–dic)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div id="rowRango" style="display:none" class="col-12">
+            <div class="row g-2">
+              <div class="col-md-4">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-control" id="selDesde" value="<?= date('Y-01-01') ?>">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="selHasta" value="<?= date('Y-m-d') ?>">
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12">
+            <button class="btn btn-gold" onclick="descargarPagina()">
+              <i class="bi bi-file-earmark-arrow-down me-2"></i>Descargar CSV
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -107,7 +231,7 @@ require_once __DIR__ . '/../includes/header.php';
     <div class="card">
       <div class="card-header"><i class="bi bi-printer me-2"></i>Imprimir libros</div>
       <div class="card-body">
-        <p class="text-muted mb-3">Versión imprimible del libro de ventas y compras por trimestre.</p>
+        <p class="text-muted mb-3" style="font-size:.88rem">Versión imprimible del libro de ventas y compras por trimestre.</p>
         <div class="d-flex gap-2 flex-wrap">
           <a href="/libros/" class="btn btn-outline-primary"><i class="bi bi-journal-text me-1"></i>Libro de ventas</a>
           <a href="/compras/" class="btn btn-outline-primary"><i class="bi bi-journal me-1"></i>Libro de compras</a>
@@ -117,5 +241,23 @@ require_once __DIR__ . '/../includes/header.php';
     </div>
   </div>
 </div>
+
+<script>
+function togglePeriodo() {
+    const p = document.getElementById('expPeriodoSel').value;
+    document.getElementById('rowAnio').style.display  = p === 'anio'  ? '' : 'none';
+    document.getElementById('rowTrim').style.display  = p === 'trim'  ? '' : 'none';
+    document.getElementById('rowRango').style.display = p === 'rango' ? '' : 'none';
+}
+function descargarPagina() {
+    const tipo = document.getElementById('expTipo').value;
+    const p    = document.getElementById('expPeriodoSel').value;
+    let url    = '/libros/exportar.php?download=1&tipo=' + tipo;
+    if (p === 'anio')  url += '&anio=' + document.getElementById('selAnio').value;
+    if (p === 'trim')  url += '&anio=' + document.getElementById('selAnioTrim').value + '&trim=' + document.getElementById('selTrim').value;
+    if (p === 'rango') url += '&fecha_desde=' + document.getElementById('selDesde').value + '&fecha_hasta=' + document.getElementById('selHasta').value;
+    window.location.href = url;
+}
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
