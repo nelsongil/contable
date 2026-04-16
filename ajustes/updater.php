@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/updater.php';
 // Forzar comprobación si se solicita
 if (get('force_check') === '1') {
     setConfig('last_update_check', 0);
+    unset($_SESSION['update_available'], $_SESSION['update_error'], $_SESSION['update_dismissed_version']);
     checkForUpdates();
     redirect('updater.php');
 }
