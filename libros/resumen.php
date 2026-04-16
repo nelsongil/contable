@@ -101,7 +101,39 @@ $totIvaRes = array_sum(array_column($ivaTrim, 'resultado'));
 .num-pos { color: var(--clr-success); }
 .num-neg { color: var(--clr-danger); }
 .num-neu { color: var(--text-3); }
+.kpi-periodo { border-left: 4px solid var(--verde-m); }
+.kpi-periodo .kpi-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); font-weight: 600; }
+.kpi-periodo .kpi-valor { font-size: 1.55rem; font-weight: 700; line-height: 1.1; }
 </style>
+
+<?php $resultado_periodo = $totIng - $totGas; ?>
+<!-- ═══ KPIs DEL PERIODO ═══ -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card kpi-periodo h-100">
+      <div class="card-body py-3 px-4">
+        <div class="kpi-label">Ingresos <?= $anio ?></div>
+        <div class="kpi-valor"><?= money($totIng) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card kpi-periodo h-100">
+      <div class="card-body py-3 px-4">
+        <div class="kpi-label">Gastos <?= $anio ?></div>
+        <div class="kpi-valor text-danger"><?= money($totGas) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card kpi-periodo h-100" style="border-left-color:<?= $resultado_periodo >= 0 ? 'var(--clr-success)' : 'var(--clr-danger)' ?>">
+      <div class="card-body py-3 px-4">
+        <div class="kpi-label">Resultado del periodo</div>
+        <div class="kpi-valor <?= $resultado_periodo >= 0 ? 'text-success' : 'text-danger' ?>"><?= money($resultado_periodo) ?></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ TABLA RESUMEN GENERAL ═══ -->
 <div class="card mb-4">
@@ -150,9 +182,18 @@ $totIvaRes = array_sum(array_column($ivaTrim, 'resultado'));
           <td class="<?= $totBase < 0 ? 'num-neg' : 'fw-bold' ?>"><?= money($totBase) ?></td>
         </tr>
 
+        <!-- IRPF acumulado (20% sobre base acumulada neta) -->
+        <tr>
+          <td title="20% sobre el rendimiento neto acumulado desde enero (ventas acum. − gastos acum.)">IRPF ACUMULADO (20%)</td>
+          <?php for ($t=1;$t<=4;$t++): $ca=$irpfTrim[$t]['cuota_acum']; ?>
+          <td class="<?= $ca > 0 ? 'num-neg' : 'num-neu' ?>"><?= money($ca) ?></td>
+          <?php endfor; ?>
+          <td class="num-neg fw-semibold"><?= money($irpfTrim[4]['cuota_acum']) ?></td>
+        </tr>
+
         <!-- IRPF (20% acumulado, a ingresar cada trim.) -->
         <tr>
-          <td title="20% sobre base acumulada − retenciones − trimestres anteriores">IRPF (20%)</td>
+          <td title="20% sobre base acumulada − retenciones − trimestres anteriores · lo que se ingresa en Hacienda cada trimestre">IRPF A INGRESAR (trim.)</td>
           <?php for ($t=1;$t<=4;$t++): $ai=$irpfTrim[$t]['a_ingresar']; ?>
           <td class="<?= $ai > 0 ? 'num-neg' : 'num-neu' ?>"><?= money($ai) ?></td>
           <?php endfor; ?>
