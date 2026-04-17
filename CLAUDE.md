@@ -19,9 +19,24 @@ Cuando el usuario pida hacer un commit (con cualquier frase como "haz el commit"
 2. **Hacer git commit** de los archivos modificados (nunca incluir `.zip`, `config/database.php`, `config/.installed` ni archivos de `.claude/`).
 3. **Hacer git push** a `main` — el CI se encarga de incrementar el PATCH y crear el Release en GitHub automáticamente.
 
+## Entorno Técnico
+
+| Variable | Valor |
+|----------|-------|
+| PHP (producción) | **8.5** |
+| Base de datos | **MariaDB 10.11.15-MariaDB-cll-lve** |
+| Entorno local | **Laragon** (Apache + PHP 8.5 + MariaDB) |
+| Indentación | **4 espacios** (nunca tabs) |
+| Line endings | **LF** (Unix) — nunca CRLF |
+| Encoding | UTF-8 sin BOM — obligatorio en todos los archivos |
+
+> MariaDB 10.11 soporta `JSON` nativo, `LAST_INSERT_ID(expr)` para contadores atómicos,
+> y `ON DUPLICATE KEY UPDATE`. No usar sintaxis exclusiva de MySQL 8+ (ej: `ROW_NUMBER()` sin
+> compatibilidad, window functions — sí disponibles en MariaDB 10.2+).
+
 ## Comandos de Desarrollo
 
-No existen herramientas de compilación ni gestores de paquetes. El desarrollo solo requiere un servidor web con PHP 8.0+ y MySQL.
+No existen herramientas de compilación ni gestores de paquetes. El desarrollo solo requiere un servidor web con PHP 8.5 y MariaDB.
 
 ```bash
 # Verificar sintaxis PHP de un archivo

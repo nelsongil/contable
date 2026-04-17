@@ -11,7 +11,7 @@ Actualizado: 2026-03-06 (v1.5)
 
 Aplicación web PHP para gestión contable de autónomos españoles. Permite emitir facturas, registrar gastos, gestionar clientes/proveedores y generar libros contables y resúmenes fiscales (Modelos 303 y 130).
 
-- **Stack:** PHP 8.0+, MySQL/MariaDB, Bootstrap 5.3, Tom Select, Bootstrap Icons
+- **Stack:** PHP 8.5, MariaDB 10.11.15, Bootstrap 5.3, Tom Select, Bootstrap Icons
 - **Hosting:** Diseñada para WebEmpresa (Apache + mod_rewrite)
 - **URL producción:** `https://contable.nelsongil.com/`
 - **BD producción:** `nelsongi_contable` en `localhost`
@@ -85,7 +85,7 @@ Ver `config/install.sql` para el DDL completo.
 | `money(float)` | Formatea a `1.234,56 €` |
 | `moneyInput(float)` | Formatea a `1234.56` para inputs numéricos |
 | `trimestre(fecha)` | Devuelve 1-4 para una fecha dada |
-| `siguienteNumeroFactura()` | Genera el siguiente `F{AÑO}{NNNN}` usando tabla `numeracion` |
+| `siguienteNumeroFactura()` | Genera el siguiente `F{AÑO}{NNNN}` con UPDATE atómico en tabla `numeracion` vía `LAST_INSERT_ID(ultimo+1)` — sin race condition |
 | `getClientes()` / `getCliente(id)` | Leer clientes |
 | `getProveedores()` / `getProveedor(id)` | Leer proveedores |
 | `getFacturasEmitidas(anio, trim)` | Lista facturas con JOIN a clientes |
@@ -118,7 +118,16 @@ Ver `config/install.sql` para el DDL completo.
 
 Formato: `F{AÑO}{NNNN}` — Ej: `F20260001`
 
-La función `siguienteNumeroFactura()` hace un `INSERT IGNORE` + `UPDATE` atómico en la tabla `numeracion` para evitar duplicados.
+`siguienteNumeroFactura()` usa la tabla `numeracion` con doble operación atómica:
+1. `INSERT IGNORE INTO numeracion (anio, ultimo) VALUES (?, inicio)` — crea la fila si no existe,
+   inicializando `ultimo` a `factura_proximo - 1` para compatibilidad con instalaciones existentes.
+2. `UPDATE numeracion SET ultimo = LAST_INSERT_ID(ultimo + 1) WHERE anio = ?` — incremento atómico;
+   `LAST_INSERT_ID(expr)` fija el valor de retorno a nivel de conexión, sin race condition.
+3. `SELECT LAST_INSERT_ID()` — lee el valor exacto que se asignó en este UPDATE (scoped a conexión).
+
+El prefijo, año y dígitos siguen configurándose desde la tabla `configuracion` (claves `factura_prefijo`,
+`factura_usa_anio`, `factura_digitos`). La clave `factura_proximo` se mantiene en `configuracion` solo
+para leer el valor inicial en instalaciones ya existentes; ya no se escribe desde el código.
 
 ---
 

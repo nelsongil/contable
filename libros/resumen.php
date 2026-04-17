@@ -22,12 +22,12 @@ for ($t = 1; $t <= 4; $t++) {
     $trims[$t] = resumenTrimestral($anio, $t);
 }
 
-// ── Acumulados para IRPF (Modelo 130) ────────────────────────────────────────
+// ── Acumulados para IRPF (Modelo 130) — base = ingresos − TODOS los gastos ────
 $ingAcum = $gasAcum = $retAcum = $pagAcum = 0;
-$irpfTrim = [];  // a ingresar cada trimestre
+$irpfTrim = [];
 for ($t = 1; $t <= 4; $t++) {
     $ingAcum += $trims[$t]['ventas_base'];
-    $gasAcum += $trims[$t]['compras_base'];
+    $gasAcum += $trims[$t]['total_gastos'];   // facturas + sueldos + SS + autónomo
     $retAcum += $trims[$t]['ventas_irpf'];
     $baseAcum    = max(0, $ingAcum - $gasAcum - $compIrpf);
     $cuotaBruta  = $baseAcum * 0.20;
@@ -45,31 +45,69 @@ for ($t = 1; $t <= 4; $t++) {
 }
 
 // ── IVA con compensación de trimestre anterior (dentro del año) ───────────────
-$compAnterior = $compIva; // puede venir del año anterior
+$compAnterior = $compIva;
 $ivaTrim = [];
 for ($t = 1; $t <= 4; $t++) {
     $generado  = $trims[$t]['ventas_iva'];
-    $deducible = $trims[$t]['compras_iva'];
+    $deducible = $trims[$t]['compras_iva'];       // ya es deducible efectivo
     $resultado = $generado - $deducible - $compAnterior;
     $ivaTrim[$t] = [
-        'generado'    => $generado,
-        'deducible'   => $deducible,
-        'comp_ant'    => $compAnterior,
-        'resultado'   => $resultado,
+        'generado'       => $generado,
+        'deducible'      => $deducible,
+        'iva_bruto'      => $trims[$t]['compras_iva_bruto'],
+        'comp_ant'       => $compAnterior,
+        'resultado'      => $resultado,
+        // desglose ventas por tipo
+        'v_iva_21'       => $trims[$t]['ventas_iva_21'],
+        'v_iva_10'       => $trims[$t]['ventas_iva_10'],
+        'v_iva_4'        => $trims[$t]['ventas_iva_4'],
+        // desglose compras deducibles por tipo
+        'c_iva_21'       => $trims[$t]['compras_iva_21'],
+        'c_iva_10'       => $trims[$t]['compras_iva_10'],
+        'c_iva_4'        => $trims[$t]['compras_iva_4'],
     ];
-    // Si el resultado es negativo, se compensa en el siguiente trimestre
     $compAnterior = $resultado < 0 ? abs($resultado) : 0;
 }
 
+// ── Qué tipos IVA tienen actividad en el año (para sub-filas condicionales) ──
+$tiposVentas  = [];
+$tiposCompras = [];
+foreach ([21, 10, 4] as $tipo) {
+    $keyV = "ventas_iva_{$tipo}";
+    $keyC = "compras_iva_{$tipo}";
+    foreach ($trims as $td) {
+        if ($td[$keyV] > 0) { $tiposVentas[$tipo]  = true; }
+        if ($td[$keyC] > 0) { $tiposCompras[$tipo] = true; }
+    }
+}
+$hayBrutoDistinto = false; // hay facturas con pct_iva_deducible < 100 en el año
+for ($t = 1; $t <= 4; $t++) {
+    if ($ivaTrim[$t]['iva_bruto'] > $ivaTrim[$t]['deducible']) {
+        $hayBrutoDistinto = true;
+        break;
+    }
+}
+
 // ── Totales anuales ───────────────────────────────────────────────────────────
-$totIng    = $irpfTrim[4]['ing_acum'];
-$totGas    = $irpfTrim[4]['gas_acum'];
-$totBase   = $totIng - $totGas;
-$totIrpf   = $pagAcum;
-$totRend   = $totBase - $totIrpf;
-$totIvaGen = array_sum(array_column($ivaTrim, 'generado'));
-$totIvaDed = array_sum(array_column($ivaTrim, 'deducible'));
-$totIvaRes = array_sum(array_column($ivaTrim, 'resultado'));
+$totIng         = $irpfTrim[4]['ing_acum'];
+$totGas         = $irpfTrim[4]['gas_acum'];   // total_gastos acumulado
+$totCompras     = array_sum(array_column($trims, 'compras_base'));
+$totSueldos     = array_sum(array_column($trims, 'sueldos'));
+$totSsEmpresa   = array_sum(array_column($trims, 'ss_empresa'));
+$totAutonomo    = array_sum(array_column($trims, 'cuota_autonomo'));
+$totBase        = $totIng - $totGas;
+$totIrpf        = $pagAcum;
+$totRend        = $totBase - $totIrpf;
+$totIvaGen      = array_sum(array_column($ivaTrim, 'generado'));
+$totIvaDed      = array_sum(array_column($ivaTrim, 'deducible'));
+$totIvaRes      = array_sum(array_column($ivaTrim, 'resultado'));
+$totIvaBruto    = array_sum(array_column($ivaTrim, 'iva_bruto'));
+$totIvaV21      = array_sum(array_column($ivaTrim, 'v_iva_21'));
+$totIvaV10      = array_sum(array_column($ivaTrim, 'v_iva_10'));
+$totIvaV4       = array_sum(array_column($ivaTrim, 'v_iva_4'));
+$totIvaC21      = array_sum(array_column($ivaTrim, 'c_iva_21'));
+$totIvaC10      = array_sum(array_column($ivaTrim, 'c_iva_10'));
+$totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
 ?>
 
 <div class="topbar">
@@ -164,11 +202,47 @@ $totIvaRes = array_sum(array_column($ivaTrim, 'resultado'));
           <td class="fw-semibold"><?= money($totIng) ?></td>
         </tr>
 
-        <!-- Gastos -->
+        <!-- Gastos: facturas recibidas -->
         <tr>
-          <td>GASTOS</td>
+          <td class="ps-3 text-muted" style="font-size:.83rem">· Facturas de gastos</td>
           <?php for ($t=1;$t<=4;$t++): ?>
-          <td><?= money($trims[$t]['compras_base']) ?></td>
+          <td class="text-muted" style="font-size:.83rem"><?= money($trims[$t]['compras_base']) ?></td>
+          <?php endfor; ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($totCompras) ?></td>
+        </tr>
+
+        <!-- Sueldos brutos -->
+        <tr>
+          <td class="ps-3 text-muted" style="font-size:.83rem">· Sueldos brutos</td>
+          <?php for ($t=1;$t<=4;$t++): ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($trims[$t]['sueldos']) ?></td>
+          <?php endfor; ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($totSueldos) ?></td>
+        </tr>
+
+        <!-- SS empresa -->
+        <tr>
+          <td class="ps-3 text-muted" style="font-size:.83rem">· SS a cargo empresa</td>
+          <?php for ($t=1;$t<=4;$t++): ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($trims[$t]['ss_empresa']) ?></td>
+          <?php endfor; ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($totSsEmpresa) ?></td>
+        </tr>
+
+        <!-- Cuota autónomo -->
+        <tr>
+          <td class="ps-3 text-muted" style="font-size:.83rem">· Cuota autónomo</td>
+          <?php for ($t=1;$t<=4;$t++): ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($trims[$t]['cuota_autonomo']) ?></td>
+          <?php endfor; ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($totAutonomo) ?></td>
+        </tr>
+
+        <!-- Total gastos -->
+        <tr>
+          <td class="fw-semibold">GASTOS TOTALES</td>
+          <?php for ($t=1;$t<=4;$t++): ?>
+          <td><?= money($trims[$t]['total_gastos']) ?></td>
           <?php endfor; ?>
           <td class="fw-semibold"><?= money($totGas) ?></td>
         </tr>
@@ -200,11 +274,11 @@ $totIvaRes = array_sum(array_column($ivaTrim, 'resultado'));
           <td class="num-neg fw-bold"><?= money($totIrpf) ?></td>
         </tr>
 
-        <!-- Rendimiento final (base trim − irpf trim) -->
+        <!-- Rendimiento final (ingresos − todos los gastos − irpf trim) -->
         <tr class="fila-total">
           <td>RENDIMIENTO FINAL</td>
           <?php for ($t=1;$t<=4;$t++):
-            $rend = $trims[$t]['ventas_base'] - $trims[$t]['compras_base'] - $irpfTrim[$t]['a_ingresar'];
+            $rend = $trims[$t]['ventas_base'] - $trims[$t]['total_gastos'] - $irpfTrim[$t]['a_ingresar'];
           ?>
           <td class="<?= $rend < 0 ? 'num-neg' : ($rend > 0 ? 'num-pos' : 'num-neu') ?>"><?= money($rend) ?></td>
           <?php endfor; ?>
@@ -214,16 +288,54 @@ $totIvaRes = array_sum(array_column($ivaTrim, 'resultado'));
         <!-- ── IVA ── -->
         <tr class="fila-section"><td colspan="6">IVA — Modelo 303</td></tr>
 
+        <?php foreach ([21, 10, 4] as $tipo): if (!isset($tiposVentas[$tipo])): continue; endif; ?>
         <tr>
-          <td>IVA VENTAS, GENERADO</td>
+          <td class="ps-3 text-muted" style="font-size:.83rem">· IVA ventas al <?= $tipo ?>%</td>
+          <?php for ($t=1;$t<=4;$t++): $v=$ivaTrim[$t]["v_iva_{$tipo}"]; ?>
+          <td class="text-muted" style="font-size:.83rem"><?= $v > 0 ? money($v) : '—' ?></td>
+          <?php endfor; ?>
+          <td class="text-muted fw-semibold" style="font-size:.83rem">
+            <?= ($tot = ${'totIvaV'.$tipo}) > 0 ? money($tot) : '—' ?>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+
+        <tr>
+          <td>IVA VENTAS TOTAL</td>
           <?php for ($t=1;$t<=4;$t++): ?>
           <td><?= money($ivaTrim[$t]['generado']) ?></td>
           <?php endfor; ?>
           <td class="fw-semibold"><?= money($totIvaGen) ?></td>
         </tr>
 
+        <?php if ($hayBrutoDistinto): ?>
         <tr>
-          <td>IVA COMPRAS, DEDUCIB.</td>
+          <td class="ps-3 text-muted" title="IVA soportado antes de aplicar los porcentajes de deducibilidad" style="font-size:.83rem">
+            · IVA soportado bruto
+          </td>
+          <?php for ($t=1;$t<=4;$t++): ?>
+          <td class="text-muted" style="font-size:.83rem"><?= money($ivaTrim[$t]['iva_bruto']) ?></td>
+          <?php endfor; ?>
+          <td class="text-muted fw-semibold" style="font-size:.83rem"><?= money($totIvaBruto) ?></td>
+        </tr>
+        <?php endif; ?>
+
+        <?php foreach ([21, 10, 4] as $tipo): if (!isset($tiposCompras[$tipo])): continue; endif; ?>
+        <tr>
+          <td class="ps-3 text-muted" style="font-size:.83rem">· IVA compras deducible <?= $tipo ?>%</td>
+          <?php for ($t=1;$t<=4;$t++): $v=$ivaTrim[$t]["c_iva_{$tipo}"]; ?>
+          <td class="text-muted num-pos" style="font-size:.83rem"><?= $v > 0 ? money($v) : '—' ?></td>
+          <?php endfor; ?>
+          <td class="text-muted fw-semibold num-pos" style="font-size:.83rem">
+            <?= ($tot = ${'totIvaC'.$tipo}) > 0 ? money($tot) : '—' ?>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+
+        <tr>
+          <td title="IVA soportado aplicando los porcentajes de deducibilidad de cada categoría de gasto">
+            IVA SOPORTADO DEDUCIBLE
+          </td>
           <?php for ($t=1;$t<=4;$t++): ?>
           <td class="num-pos"><?= money($ivaTrim[$t]['deducible']) ?></td>
           <?php endfor; ?>

@@ -25,6 +25,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="<?= csrfToken() ?>">
 <meta name="description" content="Libro Contable — <?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?>">
 <meta name="theme-color" content="#4338CA">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -537,6 +538,9 @@ if ($update && $update['version'] !== $dismissed):
   </a>
   <a href="/ajustes/empleados.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empleados') ? 'active' : '' ?>">
     <i class="bi bi-person-gear"></i> Módulo empleados
+  </a>
+  <a href="/ajustes/categorias_gasto.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>">
+    <i class="bi bi-tags"></i> Categorías de gasto
   </a>
   <a href="/ajustes/backup.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/backup') ? 'active' : '' ?>">
     <i class="bi bi-database-check"></i> Copias de seguridad

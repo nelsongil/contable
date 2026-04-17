@@ -9,6 +9,7 @@ $c  = $id ? getCliente($id) : [];
 $inline = isset($_GET['inline']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfVerify($inline);
     $data = [
         post('nombre'), post('nif'), post('direccion'), post('ciudad'),
         post('cp'), post('provincia'), post('telefono'), post('email'), post('notas')
@@ -54,6 +55,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width:700px">
   <div class="card-body p-4">
     <form method="post">
+      <?= csrfField() ?>
       <div class="row g-3">
         <div class="col-md-8">
           <label class="form-label">Nombre / Razón social *</label>

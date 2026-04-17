@@ -3,9 +3,19 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth.php';
 
-$id         = (int)get('id');
-$isEdit     = (bool)$id;
-$proveedores = getProveedores();
+$id              = (int)get('id');
+$isEdit          = (bool)$id;
+$proveedores     = getProveedores();
+$categorias_gasto = getCategoriasGasto();
+
+// Índice JS: {id: {pct_iva, pct_irpf}} para autocompletar sin petición AJAX
+$cats_js = [];
+foreach ($categorias_gasto as $cg) {
+    $cats_js[$cg['id']] = [
+        'pct_iva'  => (float)$cg['pct_iva_deducible'],
+        'pct_irpf' => (float)$cg['pct_irpf_deducible'],
+    ];
+}
 
 $fr = null;
 if ($isEdit) {
@@ -15,64 +25,78 @@ if ($isEdit) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = post('action');
-    
+
     if ($action === 'import_pdf_save') {
-        // Lógica especial para importación AJAX en 2 pasos
+        // AJAX: CSRF en modo JSON, transacción para proveedor + factura
+        csrfVerify(true);
         $provId    = (int)post('proveedor_id');
         $crearProv = post('crear_prov') === 'true';
         $db = getDB();
+        try {
+            $db->beginTransaction();
 
-        if (!$provId && $crearProv) {
-            // Crear nuevo proveedor
-            $nombre = post('prov_nombre');
-            $nif    = post('prov_nif');
-            $dir    = post('prov_dir');
-            $st = $db->prepare("INSERT INTO proveedores (nombre, nif, direccion, activo) VALUES (?, ?, ?, 1)");
-            $st->execute([$nombre, $nif, $dir]);
-            $provId = $db->lastInsertId();
+            if (!$provId && $crearProv) {
+                $nombre = post('prov_nombre');
+                $nif    = post('prov_nif');
+                $dir    = post('prov_dir');
+                $db->prepare("INSERT INTO proveedores (nombre, nif, direccion, activo) VALUES (?, ?, ?, 1)")
+                   ->execute([$nombre, $nif, $dir]);
+                $provId = (int)$db->lastInsertId();
+            }
+
+            $fecha      = post('fecha') ?: date('Y-m-d');
+            $numero     = post('numero');
+            $base       = (float)post('base_imponible');
+            $pct_iva    = (float)post('pct_iva', 21);
+            $cuota_iva  = round($base * $pct_iva / 100, 2);
+            $total      = $base + $cuota_iva;
+            $descripcion= post('descripcion');
+            $trim       = trimestre($fecha);
+
+            $st = $db->prepare("SELECT nombre, nif FROM proveedores WHERE id = ?");
+            $st->execute([$provId]);
+            $p = $st->fetch();
+
+            $data = [$fecha, $provId ?: null, $p['nombre'] ?? 'Desconocido', $p['nif'] ?? '',
+                     $base, $pct_iva, $cuota_iva, $total, $descripcion, '', $trim, $numero];
+
+            $db->prepare("INSERT INTO facturas_recibidas
+                          (fecha,proveedor_id,proveedor_nombre,proveedor_nif,base_imponible,porcentaje_iva,cuota_iva,total,descripcion,notas,trimestre,numero)
+                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")->execute($data);
+            $fid = (int)$db->lastInsertId();
+
+            $db->commit();
+            auditLog('facturas_recibidas', $fid, 'importar', null, [
+                'numero' => $numero, 'base_imponible' => $base, 'total' => $total, 'fecha' => $fecha,
+            ]);
+            flash('Factura importada y guardada correctamente.');
+            echo json_encode(['ok' => true]);
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            echo json_encode(['ok' => false, 'error' => 'Error al guardar la factura. Inténtalo de nuevo.']);
         }
-
-        $fecha      = post('fecha') ?: date('Y-m-d');
-        $numero     = post('numero');
-        $base       = (float)post('base_imponible');
-        $pct_iva    = (float)post('pct_iva', 21);
-        $cuota_iva  = round($base * $pct_iva / 100, 2);
-        $total      = $base + $cuota_iva;
-        $descripcion= post('descripcion');
-        $trim       = trimestre($fecha);
-
-        // Obtener datos finales del proveedor (por si se acaba de crear o ya existía)
-        $st = $db->prepare("SELECT nombre, nif FROM proveedores WHERE id = ?");
-        $st->execute([$provId]);
-        $p = $st->fetch();
-
-        $data = [$fecha, $provId ?: null, $p['nombre'] ?? 'Desconocido', $p['nif'] ?? '',
-                 $base, $pct_iva, $cuota_iva, $total, $descripcion, '', $trim, $numero];
-        
-        $db->prepare("INSERT INTO facturas_recibidas
-                      (fecha,proveedor_id,proveedor_nombre,proveedor_nif,base_imponible,porcentaje_iva,cuota_iva,total,descripcion,notas,trimestre,numero)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")->execute($data);
-        
-        flash('Factura importada y guardada correctamente.');
-        echo json_encode(['ok' => true]);
         exit;
     }
 
-    // Lógica normal de formulario
-    $provId     = (int)post('proveedor_id');
-    $proveedor  = $provId ? getProveedor($provId) : null;
-    $fecha      = post('fecha') ?: date('Y-m-d');
-    $numero     = post('numero');
-    $categoria  = post('categoria', 'general');
-    $base       = (float)str_replace(',', '.', post('base_imponible'));
-    $pct_iva    = (float)post('pct_iva', 21);
-    $cuota_iva  = round($base * $pct_iva / 100, 2);
-    $pct_irpf   = (float)post('pct_irpf', 0);
-    $cuota_irpf = round($base * $pct_irpf / 100, 2);
-    $total      = $base + $cuota_iva;
-    $descripcion= post('descripcion');
-    $notas      = post('notas');
-    $trim       = trimestre($fecha);
+    // ── Formulario normal ────────────────────────────────
+    csrfVerify();
+    $provId          = (int)post('proveedor_id');
+    $proveedor       = $provId ? getProveedor($provId) : null;
+    $fecha           = post('fecha') ?: date('Y-m-d');
+    $numero          = post('numero');
+    $categoria       = post('categoria', 'general');
+    $cat_gasto_id    = (int)post('categoria_gasto_id') ?: null;
+    $base            = (float)str_replace(',', '.', post('base_imponible'));
+    $pct_iva         = (float)post('pct_iva', 21);
+    $cuota_iva       = round($base * $pct_iva / 100, 2);
+    $pct_irpf        = (float)post('pct_irpf', 0);
+    $cuota_irpf      = round($base * $pct_irpf / 100, 2);
+    $total           = $base + $cuota_iva;
+    $descripcion     = post('descripcion');
+    $notas           = post('notas');
+    $trim            = trimestre($fecha);
+    $pct_iva_ded     = min(100, max(0, (float)str_replace(',', '.', post('pct_iva_deducible',  '100'))));
+    $pct_irpf_ded    = min(100, max(0, (float)str_replace(',', '.', post('pct_irpf_deducible', '100'))));
 
     if (!$numero) { $error = 'El número de factura es obligatorio.'; }
     elseif (!$base) { $error = 'La base imponible no puede ser cero.'; }
@@ -81,21 +105,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $data = [$fecha, $provId ?: null,
                  $proveedor['nombre'] ?? post('proveedor_nombre'),
                  $proveedor['nif'] ?? '',
-                 $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf, $total,
-                 $descripcion, $notas, $trim, $numero, $categoria];
-        if ($isEdit) {
-            $db->prepare("UPDATE facturas_recibidas SET fecha=?,proveedor_id=?,proveedor_nombre=?,proveedor_nif=?,
-                          base_imponible=?,porcentaje_iva=?,cuota_iva=?,porcentaje_irpf=?,cuota_irpf=?,total=?,
-                          descripcion=?,notas=?,trimestre=?,numero=?,categoria=?
-                          WHERE id=?")->execute([...$data, $id]);
-            flash('Factura actualizada.');
-        } else {
-            $db->prepare("INSERT INTO facturas_recibidas
-                          (fecha,proveedor_id,proveedor_nombre,proveedor_nif,base_imponible,porcentaje_iva,cuota_iva,porcentaje_irpf,cuota_irpf,total,descripcion,notas,trimestre,numero,categoria)
-                          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")->execute($data);
-            flash('Factura de compra registrada.');
+                 $base, $pct_iva, $cuota_iva, $pct_iva_ded, $pct_irpf, $cuota_irpf, $pct_irpf_ded,
+                 $total, $descripcion, $notas, $trim, $numero, $categoria, $cat_gasto_id];
+        try {
+            $db->beginTransaction();
+            if ($isEdit) {
+                $antes = [
+                    'base_imponible'    => $fr['base_imponible'],
+                    'cuota_iva'         => $fr['cuota_iva'],
+                    'total'             => $fr['total'],
+                    'fecha'             => $fr['fecha'],
+                    'categoria'         => $fr['categoria'],
+                    'pct_iva_deducible' => $fr['pct_iva_deducible'] ?? 100,
+                ];
+                $db->prepare(
+                    "UPDATE facturas_recibidas
+                     SET fecha=?,proveedor_id=?,proveedor_nombre=?,proveedor_nif=?,
+                         base_imponible=?,porcentaje_iva=?,cuota_iva=?,pct_iva_deducible=?,
+                         porcentaje_irpf=?,cuota_irpf=?,pct_irpf_deducible=?,total=?,
+                         descripcion=?,notas=?,trimestre=?,numero=?,categoria=?,categoria_gasto_id=?
+                     WHERE id=?"
+                )->execute([...$data, $id]);
+                $db->commit();
+                auditLog('facturas_recibidas', $id, 'editar', $antes, [
+                    'base_imponible'    => $base,   'cuota_iva'         => $cuota_iva,
+                    'total'             => $total,  'fecha'             => $fecha,
+                    'categoria'         => $categoria, 'pct_iva_deducible' => $pct_iva_ded,
+                ]);
+                flash('Factura actualizada.');
+            } else {
+                $db->prepare(
+                    "INSERT INTO facturas_recibidas
+                     (fecha,proveedor_id,proveedor_nombre,proveedor_nif,
+                      base_imponible,porcentaje_iva,cuota_iva,pct_iva_deducible,
+                      porcentaje_irpf,cuota_irpf,pct_irpf_deducible,total,
+                      descripcion,notas,trimestre,numero,categoria,categoria_gasto_id)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                )->execute($data);
+                $fid = (int)$db->lastInsertId();
+                $db->commit();
+                auditLog('facturas_recibidas', $fid, 'crear', null, [
+                    'numero'            => $numero, 'base_imponible'    => $base,
+                    'total'             => $total,  'fecha'             => $fecha,
+                    'categoria'         => $categoria, 'pct_iva_deducible' => $pct_iva_ded,
+                ]);
+                flash('Factura de compra registrada.');
+            }
+            redirect('/compras/');
+        } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            $error = 'Error al guardar la factura. Inténtalo de nuevo.';
         }
-        redirect('/compras/');
     }
 }
 
@@ -160,6 +220,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width:700px">
   <div class="card-body p-4">
     <form method="post" id="formCompra">
+      <?= csrfField() ?>
       <div class="row g-3">
         <div class="col-md-8">
           <label class="form-label">Proveedor</label>
@@ -184,7 +245,7 @@ require_once __DIR__ . '/../includes/header.php';
           </div>
         </div>
         <div class="col-md-4">
-          <label class="form-label">Categoría</label>
+          <label class="form-label">Tipo fiscal</label>
           <select name="categoria" id="selectCategoria" class="form-select" onchange="onCategoriaChange()">
             <?php
             $cats = ['general'=>'General','arrendamiento'=>'Arrendamiento (alquiler)','servicios'=>'Servicios profesionales','herramientas'=>'Herramientas / Software','suministros'=>'Suministros (luz, agua…)','otros'=>'Otros'];
@@ -193,6 +254,58 @@ require_once __DIR__ . '/../includes/header.php';
             <?php endforeach; ?>
           </select>
         </div>
+        <div class="col-md-8">
+          <label class="form-label d-flex justify-content-between">
+            <span>Categoría de gasto</span>
+            <a href="/ajustes/categorias_gasto.php" target="_blank"
+               class="text-muted" style="font-size:.75rem" title="Gestionar categorías">
+              <i class="bi bi-gear"></i>
+            </a>
+          </label>
+          <select name="categoria_gasto_id" id="selectCategoriaGasto" class="form-select"
+                  onchange="onCategoriaGastoChange()">
+            <option value="">— Sin categorizar —</option>
+            <?php foreach ($categorias_gasto as $cg): ?>
+            <option value="<?= $cg['id'] ?>"
+                    data-pct-iva="<?= (float)$cg['pct_iva_deducible'] ?>"
+                    data-pct-irpf="<?= (float)$cg['pct_irpf_deducible'] ?>"
+                    <?= ($fr['categoria_gasto_id'] ?? null) == $cg['id'] ? 'selected' : '' ?>>
+              <?= e($cg['nombre']) ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+
+        <!-- Deducibilidad: oculto por defecto, visible si algún % < 100 -->
+        <div class="col-12" id="rowDeducibilidad" style="display:none">
+          <div class="p-3 rounded border border-warning-subtle bg-warning-subtle" style="font-size:.85rem">
+            <div class="d-flex align-items-center gap-1 mb-2" style="color:#856404;font-weight:600;font-size:.78rem">
+              <i class="bi bi-info-circle me-1"></i>
+              Deducibilidad parcial — ajusta si este gasto concreto difiere de la categoría
+            </div>
+            <div class="row g-2">
+              <div class="col-sm-6">
+                <label class="form-label mb-1" style="font-size:.78rem">% IVA deducible</label>
+                <div class="input-group input-group-sm">
+                  <input type="number" name="pct_iva_deducible" id="inputPctIvaDed"
+                         class="form-control" step="0.01" min="0" max="100"
+                         value="<?= number_format((float)($fr['pct_iva_deducible'] ?? 100), 2, '.', '') ?>">
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label mb-1" style="font-size:.78rem">% IRPF deducible</label>
+                <div class="input-group input-group-sm">
+                  <input type="number" name="pct_irpf_deducible" id="inputPctIrpfDed"
+                         class="form-control" step="0.01" min="0" max="100"
+                         value="<?= number_format((float)($fr['pct_irpf_deducible'] ?? 100), 2, '.', '') ?>">
+                  <span class="input-group-text">%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="col-md-4">
           <div class="form-floating">
             <input type="date" name="fecha" id="inputFecha" class="form-control" placeholder="Fecha" required value="<?= e($fr['fecha'] ?? date('Y-m-d')) ?>">
@@ -274,6 +387,10 @@ require_once __DIR__ . '/../includes/header.php';
 #pdfImportCard .card-header { background: var(--verde-m); }
 </style>
 
+<script>
+// Token CSRF para peticiones AJAX desde esta página
+const APP_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+</script>
 <script type="module">
 // ── PDF.js — DESACTIVADO (ahora se procesa en servidor) ───────────
 /*
@@ -452,7 +569,8 @@ async function processPdf(file) {
             base_imponible: document.getElementById('import_base').value,
             pct_iva:        document.getElementById('import_iva').value,
             descripcion:    document.getElementById('import_desc').value,
-            action:         'import_pdf_save'
+            action:         'import_pdf_save',
+            csrf_token:     APP_CSRF
         };
 
         try {
@@ -531,15 +649,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('spinnerMP').classList.remove('d-none');
         document.getElementById('iconMP').classList.add('d-none');
         const body = new URLSearchParams({
-            nombre:    nombre,
-            nif:       document.getElementById('mp_nif').value,
-            direccion: document.getElementById('mp_direccion').value,
-            ciudad:    document.getElementById('mp_ciudad').value,
-            cp:        document.getElementById('mp_cp').value,
-            provincia: document.getElementById('mp_provincia').value,
-            telefono:  document.getElementById('mp_telefono').value,
-            email:     document.getElementById('mp_email').value,
-            notas:     ''
+            nombre:     nombre,
+            nif:        document.getElementById('mp_nif').value,
+            direccion:  document.getElementById('mp_direccion').value,
+            ciudad:     document.getElementById('mp_ciudad').value,
+            cp:         document.getElementById('mp_cp').value,
+            provincia:  document.getElementById('mp_provincia').value,
+            telefono:   document.getElementById('mp_telefono').value,
+            email:      document.getElementById('mp_email').value,
+            notas:      '',
+            csrf_token: APP_CSRF
         });
         try {
             const resp = await fetch('/proveedores/nuevo.php?inline=1', { method: 'POST', body });
@@ -591,18 +710,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
         document.getElementById('totalDisplay').value = window.fmt(base + cuotaIva);
     }
+    // Datos de categorías de gasto para autocompletar sin AJAX
+    const CATS_GASTO = <?= json_encode($cats_js, JSON_UNESCAPED_UNICODE) ?>;
+
     window.onCategoriaChange = function() {
         const cat    = document.getElementById('selectCategoria').value;
         const show   = cat === 'arrendamiento';
         document.getElementById('rowIrpf').style.display      = show ? '' : 'none';
         document.getElementById('rowCuotaIrpf').style.display = show ? '' : 'none';
         if (!show) {
-            // Reset pct_irpf hidden so it sends 0
             const sel = document.getElementById('pctIrpfCompra');
             if (sel) sel.disabled = !show;
         }
         window.recalcCompra();
     }
+
+    window.onCategoriaGastoChange = function() {
+        const sel = document.getElementById('selectCategoriaGasto');
+        const id  = parseInt(sel.value);
+        if (!id || !CATS_GASTO[id]) {
+            // Sin categoría — mantener valores manuales, no forzar nada
+            syncDeducibilidadVisibility();
+            return;
+        }
+        const cat = CATS_GASTO[id];
+        document.getElementById('inputPctIvaDed').value   = cat.pct_iva.toFixed(2);
+        document.getElementById('inputPctIrpfDed').value  = cat.pct_irpf.toFixed(2);
+        syncDeducibilidadVisibility();
+    }
+
+    // Mostrar el bloque de deducibilidad solo si algún % < 100
+    function syncDeducibilidadVisibility() {
+        const iva  = parseFloat(document.getElementById('inputPctIvaDed').value)  || 100;
+        const irpf = parseFloat(document.getElementById('inputPctIrpfDed').value) || 100;
+        const mostrar = iva < 100 || irpf < 100;
+        document.getElementById('rowDeducibilidad').style.display = mostrar ? '' : 'none';
+    }
+
+    // También detectar edición manual de los % para mostrar/ocultar
+    document.getElementById('inputPctIvaDed')?.addEventListener('input',  syncDeducibilidadVisibility);
+    document.getElementById('inputPctIrpfDed')?.addEventListener('input', syncDeducibilidadVisibility);
+
+    // Inicializar en carga (relevante en modo edición)
+    syncDeducibilidadVisibility();
     window.togglePdfPanel = function() {
         const panel   = document.getElementById('pdfPanel');
         const chevron = document.getElementById('pdfChevron');

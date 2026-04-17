@@ -80,21 +80,90 @@ function trimestre(string $fecha): int {
 }
 
 // ─── Siguiente número de factura ─────────────────────────────
+// Usa LAST_INSERT_ID(expr) para un incremento atómico sin race condition.
+// Compatible con instalaciones existentes: inicializa numeracion.ultimo
+// a partir de factura_proximo (configuracion) en el primer uso del año.
 function siguienteNumeroFactura(): string {
     $pref    = getConfig('factura_prefijo', 'F');
     $usaAnio = getConfig('factura_usa_anio', true);
     $digitos = (int)getConfig('factura_digitos', 5);
+    $anio    = (int)date('Y');
+    $db      = getDB();
+
+    // Primer uso del año: inicializar desde factura_proximo si existe
     $proximo = (int)getConfig('factura_proximo', 1);
+    $inicio  = max(0, $proximo - 1);
+    $db->prepare("INSERT IGNORE INTO numeracion (anio, ultimo) VALUES (?, ?)")
+       ->execute([$anio, $inicio]);
 
-    $anio = $usaAnio ? date('Y') : '';
-    $numeroStr = str_pad($proximo, $digitos, '0', STR_PAD_LEFT);
-    
-    $final = $pref . $anio . $numeroStr;
+    // Incremento atómico — LAST_INSERT_ID(expr) es scoped a la conexión
+    $db->prepare("UPDATE numeracion SET ultimo = LAST_INSERT_ID(ultimo + 1) WHERE anio = ?")
+       ->execute([$anio]);
+    $ultimo = (int)$db->query("SELECT LAST_INSERT_ID()")->fetchColumn();
 
-    // Incrementar el próximo número para la siguiente vez
-    setConfig('factura_proximo', $proximo + 1);
+    $anioStr   = $usaAnio ? (string)$anio : '';
+    $numeroStr = str_pad($ultimo, $digitos, '0', STR_PAD_LEFT);
+    return $pref . $anioStr . $numeroStr;
+}
 
-    return $final;
+// ─── CSRF ────────────────────────────────────────────────────
+function csrfToken(): string {
+    if (session_status() === PHP_SESSION_NONE) session_start();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function csrfField(): string {
+    return '<input type="hidden" name="csrf_token" value="' . csrfToken() . '">';
+}
+
+// $ajaxMode=true: devuelve JSON de error en lugar de redirigir (para endpoints AJAX)
+function csrfVerify(bool $ajaxMode = false): void {
+    $provided = $_POST['csrf_token'] ?? '';
+    if (hash_equals(csrfToken(), $provided)) return;
+
+    if ($ajaxMode) {
+        header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => 'Sesión caducada. Recarga la página.']);
+        exit;
+    }
+    flash('Petición inválida. Vuelve a intentarlo.', 'error');
+    $back = $_SERVER['HTTP_REFERER'] ?? '/';
+    header('Location: ' . $back);
+    exit;
+}
+
+// ─── Audit trail ─────────────────────────────────────────────
+// Registra operaciones financieras. Nunca lanza excepción — el audit
+// no debe interrumpir la operación principal.
+function auditLog(
+    string  $tabla,
+    ?int    $registroId,
+    string  $accion,
+    ?array  $antes    = null,
+    ?array  $despues  = null
+): void {
+    try {
+        $db = getDB();
+        $db->prepare(
+            "INSERT INTO auditoria
+             (tabla, registro_id, accion, datos_antes, datos_despues, usuario, usuario_id, ip)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )->execute([
+            $tabla,
+            $registroId,
+            $accion,
+            $antes   !== null ? json_encode($antes,   JSON_UNESCAPED_UNICODE) : null,
+            $despues !== null ? json_encode($despues, JSON_UNESCAPED_UNICODE) : null,
+            $_SESSION['usuario_nombre'] ?? 'sistema',
+            $_SESSION['usuario_id']     ?? null,
+            $_SERVER['REMOTE_ADDR']     ?? null,
+        ]);
+    } catch (Exception) {
+        // Silencioso: el audit nunca debe romper la operación contable
+    }
 }
 
 // ─── CRUD helpers ────────────────────────────────────────────
@@ -171,26 +240,107 @@ function getFacturasRecibidas(int $anio = 0, int $trim = 0, string $categoria = 
 function resumenTrimestral(int $anio, int $trim): array {
     $db = getDB();
 
-    $ve = $db->prepare("SELECT COALESCE(SUM(base_imponible),0) base, COALESCE(SUM(cuota_iva),0) iva, COALESCE(SUM(cuota_irpf),0) irpf
-                        FROM facturas_emitidas WHERE YEAR(fecha)=? AND trimestre=? AND estado!='cancelada'");
+    // ── Ventas: totales + desglose por tipo IVA ──────────────────────────────
+    $ve = $db->prepare(
+        "SELECT
+            COALESCE(SUM(base_imponible),0)                                              base,
+            COALESCE(SUM(cuota_iva),0)                                                   iva,
+            COALESCE(SUM(cuota_irpf),0)                                                  irpf,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=21 THEN base_imponible ELSE 0 END),0)  base_21,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=21 THEN cuota_iva      ELSE 0 END),0)  iva_21,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=10 THEN base_imponible ELSE 0 END),0)  base_10,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=10 THEN cuota_iva      ELSE 0 END),0)  iva_10,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN base_imponible ELSE 0 END),0)  base_4,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN cuota_iva      ELSE 0 END),0)  iva_4
+         FROM facturas_emitidas
+         WHERE YEAR(fecha)=? AND trimestre=? AND estado!='cancelada'"
+    );
     $ve->execute([$anio, $trim]);
     $ventas = $ve->fetch();
 
-    $co = $db->prepare("SELECT COALESCE(SUM(base_imponible),0) base, COALESCE(SUM(cuota_iva),0) iva
-                        FROM facturas_recibidas WHERE YEAR(fecha)=? AND trimestre=?");
+    // ── Compras: totales bruto/deducible + desglose por tipo IVA ─────────────
+    // IVA deducible efectivo = cuota_iva * (pct_iva_deducible / 100)
+    $co = $db->prepare(
+        "SELECT
+            COALESCE(SUM(base_imponible),0)                                                           base,
+            COALESCE(SUM(cuota_iva),0)                                                                iva_bruto,
+            COALESCE(SUM(cuota_iva * pct_iva_deducible / 100),0)                                      iva_deducible,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=21 THEN base_imponible                ELSE 0 END),0) base_21,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=21 THEN cuota_iva*pct_iva_deducible/100 ELSE 0 END),0) iva_21,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=10 THEN base_imponible                ELSE 0 END),0) base_10,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=10 THEN cuota_iva*pct_iva_deducible/100 ELSE 0 END),0) iva_10,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN base_imponible                ELSE 0 END),0) base_4,
+            COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN cuota_iva*pct_iva_deducible/100 ELSE 0 END),0) iva_4
+         FROM facturas_recibidas
+         WHERE YEAR(fecha)=? AND trimestre=?"
+    );
     $co->execute([$anio, $trim]);
     $compras = $co->fetch();
 
-    $iva_resultado = $ventas['iva'] - $compras['iva'];
+    // Costes de personal — solo si el módulo está activo y las tablas existen
+    $mesInicio = ($trim - 1) * 3 + 1;
+    $mesFin    = $mesInicio + 2;
+    $sueldos = $ss_empresa = $cuota_autonomo = 0.0;
+
+    if (getConfig('modulo_empleados', false)) {
+        try {
+            $em = $db->prepare(
+                "SELECT COALESCE(SUM(salario_pagado),0) sueldos,
+                        COALESCE(SUM(ss_empresa),0)     ss_empresa
+                 FROM retenciones_empleados WHERE anio=? AND mes BETWEEN ? AND ?"
+            );
+            $em->execute([$anio, $mesInicio, $mesFin]);
+            $personal   = $em->fetch();
+            $sueldos    = (float)$personal['sueldos'];
+            $ss_empresa = (float)$personal['ss_empresa'];
+        } catch (PDOException) { /* tabla aún no migrada */ }
+
+        try {
+            $au = $db->prepare(
+                "SELECT COALESCE(SUM(importe),0) cuota
+                 FROM cuotas_autonomo WHERE anio=? AND mes BETWEEN ? AND ?"
+            );
+            $au->execute([$anio, $mesInicio, $mesFin]);
+            $cuota_autonomo = (float)$au->fetchColumn();
+        } catch (PDOException) { /* tabla aún no migrada */ }
+    }
+
+    $total_gastos  = (float)$compras['base'] + $sueldos + $ss_empresa + $cuota_autonomo;
+    $iva_deducible = (float)$compras['iva_deducible'];
+    $iva_resultado = (float)$ventas['iva'] - $iva_deducible;
 
     return [
-        'ventas_base'  => (float)$ventas['base'],
-        'ventas_iva'   => (float)$ventas['iva'],
-        'ventas_irpf'  => (float)$ventas['irpf'],
-        'compras_base' => (float)$compras['base'],
-        'compras_iva'  => (float)$compras['iva'],
-        'iva_resultado'=> $iva_resultado,
-        'rendimiento'  => (float)$ventas['base'] - (float)$compras['base'],
+        // ── Existentes (compatibilidad total con código consumidor) ──
+        'ventas_base'    => (float)$ventas['base'],
+        'ventas_iva'     => (float)$ventas['iva'],
+        'ventas_irpf'    => (float)$ventas['irpf'],
+        'compras_base'   => (float)$compras['base'],
+        'compras_iva'    => $iva_deducible,          // CORREGIDO: ahora es el deducible efectivo
+        'sueldos'        => $sueldos,
+        'ss_empresa'     => $ss_empresa,
+        'cuota_autonomo' => $cuota_autonomo,
+        'total_gastos'   => $total_gastos,
+        'iva_resultado'  => $iva_resultado,          // CORREGIDO: usa deducible efectivo
+        'rendimiento'    => (float)$ventas['base'] - $total_gastos,
+
+        // ── Nuevos: IVA bruto (informativo) ──
+        'compras_iva_bruto' => (float)$compras['iva_bruto'],
+
+        // ── Nuevos: ventas desglosadas por tipo (→ Modelo 303 casillas 01-09) ──
+        'ventas_base_21' => (float)$ventas['base_21'],
+        'ventas_iva_21'  => (float)$ventas['iva_21'],
+        'ventas_base_10' => (float)$ventas['base_10'],
+        'ventas_iva_10'  => (float)$ventas['iva_10'],
+        'ventas_base_4'  => (float)$ventas['base_4'],
+        'ventas_iva_4'   => (float)$ventas['iva_4'],
+
+        // ── Nuevos: compras deducibles desglosadas por tipo (→ Modelo 303 casilla 29) ──
+        'compras_base_21' => (float)$compras['base_21'],
+        'compras_iva_21'  => (float)$compras['iva_21'],
+        'compras_base_10' => (float)$compras['base_10'],
+        'compras_iva_10'  => (float)$compras['iva_10'],
+        'compras_base_4'  => (float)$compras['base_4'],
+        'compras_iva_4'   => (float)$compras['iva_4'],
     ];
 }
 
@@ -269,15 +419,39 @@ function generateSQLDump(): string {
     return $out;
 }
 
+// ─── Categorías de gasto ─────────────────────────────────────
+function getCategoriasGasto(bool $soloActivas = true): array {
+    $db  = getDB();
+    $sql = "SELECT id, nombre, pct_iva_deducible, pct_irpf_deducible, activa
+            FROM categorias_gasto"
+         . ($soloActivas ? " WHERE activa = 1" : "")
+         . " ORDER BY nombre";
+    return $db->query($sql)->fetchAll();
+}
+
+function getCategoriaGasto(int $id): array|false {
+    $st = getDB()->prepare(
+        "SELECT id, nombre, pct_iva_deducible, pct_irpf_deducible, activa
+         FROM categorias_gasto WHERE id = ?"
+    );
+    $st->execute([$id]);
+    return $st->fetch();
+}
+
 // ─── Empleados ────────────────────────────────────────────────
 function getEmpleados(bool $soloActivos = true): array {
     $db  = getDB();
-    $sql = "SELECT id, nombre, nif, puesto, salario_mensual, porcentaje_irpf, fecha_alta, activo
+    $sql = "SELECT id, nombre, nif, puesto, salario_mensual, porcentaje_irpf,
+                   porcentaje_ss_empresa, porcentaje_ss_empleado, fecha_alta, activo
             FROM empleados" . ($soloActivos ? " WHERE activo=1" : "") . " ORDER BY nombre";
     return $db->query($sql)->fetchAll();
 }
 function getEmpleado(int $id): array|false {
-    $st = getDB()->prepare("SELECT id, nombre, nif, puesto, salario_mensual, porcentaje_irpf, fecha_alta, activo FROM empleados WHERE id=?");
+    $st = getDB()->prepare(
+        "SELECT id, nombre, nif, puesto, salario_mensual, porcentaje_irpf,
+                porcentaje_ss_empresa, porcentaje_ss_empleado, fecha_alta, activo
+         FROM empleados WHERE id=?"
+    );
     $st->execute([$id]);
     return $st->fetch();
 }

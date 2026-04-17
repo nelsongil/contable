@@ -18,6 +18,7 @@ if ($isEdit && in_array($factura['estado'] ?? '', ['pagada', 'cancelada'])) {
 
 // ── Procesar formulario ───────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfVerify();
     $db          = getDB();
     $clienteId   = (int)post('cliente_id');
     $cliente     = $clienteId ? getCliente($clienteId) : null;
@@ -55,7 +56,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Añade al menos una línea de factura.';
     } else {
         try {
+            $db->beginTransaction();
+
             if ($isEdit) {
+                // Capturar estado anterior para audit trail
+                $antes = [
+                    'base_imponible' => $factura['base_imponible'],
+                    'cuota_iva'      => $factura['cuota_iva'],
+                    'cuota_irpf'     => $factura['cuota_irpf'],
+                    'total'          => $factura['total'],
+                    'estado'         => $factura['estado'],
+                    'fecha'          => $factura['fecha'],
+                ];
                 $db->prepare("UPDATE facturas_emitidas SET fecha=?,fecha_vencimiento=?,cliente_id=?,
                               cliente_nombre=?,cliente_nif=?,base_imponible=?,porcentaje_iva=?,cuota_iva=?,
                               porcentaje_irpf=?,cuota_irpf=?,total=?,liquido=?,notas=?,estado=?,trimestre=?
@@ -86,13 +98,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                               VALUES (?,?,?,?,?,?)")
                    ->execute([$fid, $ord, $cant, $desc, $precio, $ltotal]);
             }
+
+            $db->commit();
+
+            // Audit trail (fuera de la transacción — no crítico)
+            $despues = [
+                'base_imponible' => $base,
+                'cuota_iva'      => $cuota_iva,
+                'cuota_irpf'     => $cuota_irpf,
+                'total'          => $total,
+                'estado'         => $estado,
+                'fecha'          => $fecha,
+            ];
+            if ($isEdit) {
+                auditLog('facturas_emitidas', $fid, 'editar', $antes, $despues);
+            } else {
+                auditLog('facturas_emitidas', $fid, 'crear', null, array_merge(['numero' => $numero], $despues));
+            }
+
             flash($isEdit ? 'Factura actualizada.' : "Factura creada correctamente.");
             redirect('/facturas/ver.php?id=' . $fid);
         } catch (PDOException $e) {
+            if ($db->inTransaction()) $db->rollBack();
             if ($e->getCode() == 23000) {
                 $error = "Error: El número de factura ya existe.";
             } else {
-                $error = "Error al guardar: " . $e->getMessage();
+                $error = "Error al guardar la factura. Inténtalo de nuevo.";
             }
         }
     }
@@ -135,6 +166,7 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
 <?php endif; ?>
 
 <form method="post" id="formFactura">
+<?= csrfField() ?>
 <div class="row g-3">
 
   <!-- Cabecera factura -->

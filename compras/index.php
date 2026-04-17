@@ -6,8 +6,13 @@ $anio  = (int)get('anio', date('Y'));
 $trim  = (int)get('trim', 0);
 $facturas = getFacturasRecibidas($anio, $trim);
 
-$totBase = $totIva = $totTotal = 0;
-foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuota_iva']; $totTotal += $f['total']; }
+$totBase = $totIva = $totTotal = $totIvaDed = 0;
+foreach ($facturas as $f) {
+    $totBase   += $f['base_imponible'];
+    $totIva    += $f['cuota_iva'];
+    $totTotal  += $f['total'];
+    $totIvaDed += $f['cuota_iva'] * $f['pct_iva_deducible'] / 100;
+}
 ?>
 
 <div class="topbar fade-in-up">
@@ -37,9 +42,16 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
 </div>
 
 <div class="row g-2 mb-3">
-  <div class="col-sm-4"><div class="kpi py-2"><div class="label">Base imponible</div><div class="value" style="font-size:1.2rem"><?= money($totBase) ?></div></div></div>
-  <div class="col-sm-4"><div class="kpi py-2"><div class="label">IVA soportado</div><div class="value" style="font-size:1.2rem"><?= money($totIva) ?></div></div></div>
-  <div class="col-sm-4"><div class="kpi py-2"><div class="label">Total pagado</div><div class="value" style="font-size:1.2rem"><?= money($totTotal) ?></div></div></div>
+  <div class="col-sm-3"><div class="kpi py-2"><div class="label">Base imponible</div><div class="value" style="font-size:1.2rem"><?= money($totBase) ?></div></div></div>
+  <div class="col-sm-3"><div class="kpi py-2"><div class="label">IVA soportado</div><div class="value" style="font-size:1.2rem"><?= money($totIva) ?></div></div></div>
+  <div class="col-sm-3"><div class="kpi py-2">
+    <div class="label">IVA deducible</div>
+    <div class="value" style="font-size:1.2rem"><?= money($totIvaDed) ?></div>
+    <?php if (round($totIvaDed, 2) < round($totIva, 2)): ?>
+    <div style="font-size:.72rem;color:var(--text-3)"><?= number_format($totIva > 0 ? $totIvaDed/$totIva*100 : 0, 0) ?>% del soportado</div>
+    <?php endif; ?>
+  </div></div>
+  <div class="col-sm-3"><div class="kpi py-2"><div class="label">Total pagado</div><div class="value" style="font-size:1.2rem"><?= money($totTotal) ?></div></div></div>
 </div>
 
 <div class="card">
@@ -68,7 +80,12 @@ foreach ($facturas as $f) { $totBase += $f['base_imponible']; $totIva += $f['cuo
           <td class="text-truncate" style="max-width:140px"><?= e($f['proveedor_nombre']) ?></td>
           <td class="text-truncate text-muted small" style="max-width:160px"><?= e($f['descripcion']) ?></td>
           <td class="text-end"><?= money($f['base_imponible']) ?></td>
-          <td class="text-end"><?= money($f['cuota_iva']) ?></td>
+          <td class="text-end">
+            <?= money($f['cuota_iva']) ?>
+            <?php if ((float)$f['pct_iva_deducible'] < 100): ?>
+            <small class="d-block" style="font-size:.68rem;color:var(--clr-warning)"><?= number_format((float)$f['pct_iva_deducible'], 0) ?>% ded.</small>
+            <?php endif; ?>
+          </td>
           <td class="text-end fw-semibold"><?= money($f['total']) ?></td>
           <td>
             <div class="actions">

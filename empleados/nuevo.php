@@ -9,6 +9,7 @@ $id = (int)($_GET['id'] ?? 0);
 $e  = $id ? getEmpleado($id) : [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    csrfVerify();
     $nombre   = post('nombre');
     $nif      = post('nif');
     $puesto   = post('puesto');
@@ -16,17 +17,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $irpf     = (float)str_replace(',', '.', post('porcentaje_irpf', '0'));
     $alta     = post('fecha_alta') ?: null;
 
+    $ss_empresa  = (float)str_replace(',', '.', post('porcentaje_ss_empresa',  '29.90'));
+    $ss_empleado = (float)str_replace(',', '.', post('porcentaje_ss_empleado', '6.47'));
+
     if (!$nombre) {
         $error = 'El nombre es obligatorio.';
     } else {
         $db = getDB();
         if ($id) {
-            $db->prepare("UPDATE empleados SET nombre=?, nif=?, puesto=?, salario_mensual=?, porcentaje_irpf=?, fecha_alta=? WHERE id=?")
-               ->execute([$nombre, $nif, $puesto, $salario, $irpf, $alta, $id]);
+            $db->prepare("UPDATE empleados SET nombre=?, nif=?, puesto=?, salario_mensual=?, porcentaje_irpf=?, porcentaje_ss_empresa=?, porcentaje_ss_empleado=?, fecha_alta=? WHERE id=?")
+               ->execute([$nombre, $nif, $puesto, $salario, $irpf, $ss_empresa, $ss_empleado, $alta, $id]);
             flash('Empleado actualizado.');
         } else {
-            $db->prepare("INSERT INTO empleados (nombre, nif, puesto, salario_mensual, porcentaje_irpf, fecha_alta) VALUES (?,?,?,?,?,?)")
-               ->execute([$nombre, $nif, $puesto, $salario, $irpf, $alta]);
+            $db->prepare("INSERT INTO empleados (nombre, nif, puesto, salario_mensual, porcentaje_irpf, porcentaje_ss_empresa, porcentaje_ss_empleado, fecha_alta) VALUES (?,?,?,?,?,?,?,?)")
+               ->execute([$nombre, $nif, $puesto, $salario, $irpf, $ss_empresa, $ss_empleado, $alta]);
             flash('Empleado creado correctamente.');
         }
         redirect('/empleados/');
@@ -49,6 +53,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card" style="max-width:680px">
   <div class="card-body p-4">
     <form method="post">
+      <?= csrfField() ?>
       <div class="row g-3">
         <div class="col-md-8">
           <label class="form-label">Nombre completo *</label>
@@ -81,6 +86,28 @@ require_once __DIR__ . '/../includes/header.php';
           </div>
           <div class="form-text">Retención aproximada: <strong id="retencionPreview">—</strong></div>
         </div>
+
+        <div class="col-12"><hr class="my-1"><p class="text-muted mb-0" style="font-size:.8rem">SEGURIDAD SOCIAL — tipos de cotización</p></div>
+
+        <div class="col-md-6">
+          <label class="form-label">% SS a cargo empresa</label>
+          <div class="input-group">
+            <input type="number" name="porcentaje_ss_empresa" class="form-control" step="0.01" min="0" max="100"
+                   value="<?= number_format((float)($e['porcentaje_ss_empresa'] ?? 29.90), 2, '.', '') ?>" id="ssEmpresaInput">
+            <span class="input-group-text">%</span>
+          </div>
+          <div class="form-text">Cuota empresa: <strong id="ssEmpresaPreview">—</strong></div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">% SS a cargo empleado</label>
+          <div class="input-group">
+            <input type="number" name="porcentaje_ss_empleado" class="form-control" step="0.01" min="0" max="100"
+                   value="<?= number_format((float)($e['porcentaje_ss_empleado'] ?? 6.47), 2, '.', '') ?>" id="ssEmpleadoInput">
+            <span class="input-group-text">%</span>
+          </div>
+          <div class="form-text">Cuota empleado: <strong id="ssEmpleadoPreview">—</strong></div>
+        </div>
+
         <div class="col-12 pt-2">
           <button type="submit" class="btn btn-gold px-4">
             <i class="bi bi-check-lg me-1"></i><?= $id ? 'Guardar cambios' : 'Crear empleado' ?>
@@ -93,13 +120,18 @@ require_once __DIR__ . '/../includes/header.php';
 
 <script>
 function updatePreview() {
-    const sal  = parseFloat(document.getElementById('salarioInput').value) || 0;
-    const irpf = parseFloat(document.getElementById('irpfInput').value) || 0;
-    const ret  = (sal * irpf / 100).toFixed(2).replace('.', ',');
-    document.getElementById('retencionPreview').textContent = ret + ' €/mes';
+    const sal        = parseFloat(document.getElementById('salarioInput').value) || 0;
+    const irpf       = parseFloat(document.getElementById('irpfInput').value) || 0;
+    const ssEmpresa  = parseFloat(document.getElementById('ssEmpresaInput').value) || 0;
+    const ssEmpleado = parseFloat(document.getElementById('ssEmpleadoInput').value) || 0;
+    const fmt = v => v.toFixed(2).replace('.', ',') + ' €/mes';
+    document.getElementById('retencionPreview').textContent  = fmt(sal * irpf / 100);
+    document.getElementById('ssEmpresaPreview').textContent  = fmt(sal * ssEmpresa / 100);
+    document.getElementById('ssEmpleadoPreview').textContent = fmt(sal * ssEmpleado / 100);
 }
-document.getElementById('salarioInput').addEventListener('input', updatePreview);
-document.getElementById('irpfInput').addEventListener('input', updatePreview);
+['salarioInput','irpfInput','ssEmpresaInput','ssEmpleadoInput'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updatePreview)
+);
 updatePreview();
 </script>
 
