@@ -48,7 +48,12 @@ ALTER TABLE facturas_recibidas
     ADD COLUMN IF NOT EXISTS pct_irpf_deducible  DECIMAL(5,2) NOT NULL DEFAULT 100.00
         AFTER cuota_irpf;
 
--- FK en sentencia separada para mayor compatibilidad
+-- FK en dos sentencias separadas para idempotencia compatible con MariaDB 10.11
+-- ADD CONSTRAINT IF NOT EXISTS no está soportado para FOREIGN KEY en MariaDB;
+-- el patrón DROP IF EXISTS + ADD es equivalente y funciona desde MariaDB 10.1.4
 ALTER TABLE facturas_recibidas
-    ADD CONSTRAINT IF NOT EXISTS fk_fr_categoria_gasto
+    DROP FOREIGN KEY IF EXISTS fk_fr_categoria_gasto;
+
+ALTER TABLE facturas_recibidas
+    ADD CONSTRAINT fk_fr_categoria_gasto
     FOREIGN KEY (categoria_gasto_id) REFERENCES categorias_gasto(id) ON DELETE SET NULL;

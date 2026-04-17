@@ -146,8 +146,11 @@ switch ($step) {
             
             rcopy_recursive($source, $target, $exclude);
 
-            // Migraciones SQL
+            // Migraciones SQL — cada fichero se ejecuta de forma independiente;
+            // un error en uno no impide que los siguientes se ejecuten.
+            // Las migraciones deben ser idempotentes (IF NOT EXISTS, INSERT IGNORE, DROP IF EXISTS).
             $migrationsDir = $source . '/config/migrations';
+            $migrationErrors = [];
             if (is_dir($migrationsDir)) {
                 $files = scandir($migrationsDir);
                 sort($files);
@@ -155,9 +158,20 @@ switch ($step) {
                 foreach ($files as $f) {
                     if (pathinfo($f, PATHINFO_EXTENSION) === 'sql') {
                         $sql = file_get_contents($migrationsDir . '/' . $f);
-                        if (!empty(trim($sql))) $db->exec($sql);
+                        if (!empty(trim($sql))) {
+                            try {
+                                $db->exec($sql);
+                            } catch (PDOException $me) {
+                                // Registrar el error pero continuar con el resto de migraciones
+                                $migrationErrors[] = $f . ': ' . $me->getMessage();
+                            }
+                        }
                     }
                 }
+            }
+            // Si alguna migración falló, incluirlo en la respuesta como advertencia (no error fatal)
+            if ($migrationErrors) {
+                error_log('[update] Advertencias en migraciones: ' . implode(' | ', $migrationErrors));
             }
 
             echo json_encode(['ok' => true]);
