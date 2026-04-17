@@ -1,77 +1,115 @@
 <?php
 /**
- * Lógica de Backup (Exportar/Importar/Eliminar/Auto)
- * Libro Contable v1.2
+ * Lógica de Backup — Libro Contable
+ * Acciones: export | list | download | delete | restore | auto_check | set_config
  */
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 
-// Seguridad: Solo admin logado
+// Seguridad: solo usuario autenticado
 if (empty($_SESSION['usuario_id'])) {
     header('Content-Type: application/json');
     echo json_encode(['ok' => false, 'error' => 'Sesión no autorizada.']);
     exit;
 }
 
-$action = get('action');
+$action    = get('action');
 $backupDir = __DIR__ . '/../backups';
 if (!is_dir($backupDir)) @mkdir($backupDir, 0755, true);
 
-header('Content-Type: application/json');
-
 switch ($action) {
+
+    // ── Generar backup ZIP ────────────────────────────────────────────────────
     case 'export':
+        header('Content-Type: application/json');
         try {
-            $filename = 'backup_' . date('Y-m-d_H-i-s') . '.sql';
-            $path = $backupDir . '/' . $filename;
+            $filename = 'backup_' . date('Y-m-d_H-i-s') . '.zip';
+            $path     = $backupDir . '/' . $filename;
 
-            $sql = generateSQLDump();
-            if (file_put_contents($path, $sql) === false) {
-                throw new Exception("No se pudo escribir el archivo en el servidor.");
-            }
+            generateBackupZip($path);
 
-            // Rotar backups manuales: eliminar los más antiguos si superan el límite
-            $maxManuales = max(1, (int)getConfig('backup_max_manuales', 10));
-            $todosBackups = glob($backupDir . '/backup_*.sql') ?: [];
-            $manuales = array_values(array_filter($todosBackups, fn($f) => !str_contains(basename($f), 'auto')));
+            // Rotar manuales (incluye .zip y .sql legacy)
+            $maxManuales  = max(1, (int)getConfig('backup_max_manuales', 10));
+            $todosBackups = array_merge(
+                glob($backupDir . '/backup_*.zip') ?: [],
+                glob($backupDir . '/backup_*.sql') ?: []
+            );
+            $manuales = array_values(array_filter(
+                $todosBackups,
+                fn($f) => !str_contains(basename($f), '_auto_')
+            ));
             usort($manuales, fn($a, $b) => filemtime($a) - filemtime($b));
             while (count($manuales) > $maxManuales) {
                 @unlink(array_shift($manuales));
             }
 
             echo json_encode([
-                'ok' => true,
+                'ok'       => true,
                 'filename' => $filename,
-                'size' => formatBytes(filesize($path)),
-                'date' => date('d/m/Y H:i')
+                'size'     => formatBackupBytes(filesize($path)),
+                'date'     => date('d/m/Y H:i'),
             ]);
         } catch (Exception $e) {
             echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
         }
         break;
 
+    // ── Listar backups disponibles (.zip + .sql legacy) ───────────────────────
     case 'list':
-        $files = glob($backupDir . '/*.sql');
-        usort($files, fn($a, $b) => filemtime($b) - filemtime($a)); // Más nuevos primero
-        
+        header('Content-Type: application/json');
+        $files = array_merge(
+            glob($backupDir . '/*.zip') ?: [],
+            glob($backupDir . '/*.sql') ?: []
+        );
+        usort($files, fn($a, $b) => filemtime($b) - filemtime($a));
+
         $list = [];
-        foreach (array_slice($files, 0, 10) as $f) {
+        foreach (array_slice($files, 0, 20) as $f) {
             $list[] = [
                 'name' => basename($f),
-                'size' => formatBytes(filesize($f)),
+                'size' => formatBackupBytes(filesize($f)),
                 'date' => date('d/m/Y H:i', filemtime($f)),
-                'time' => filemtime($f)
+                'time' => filemtime($f),
+                'type' => str_ends_with($f, '.zip') ? 'zip' : 'sql',
             ];
         }
         echo json_encode(['ok' => true, 'backups' => $list]);
         break;
 
-    case 'delete':
-        $file = get('file');
+    // ── Descargar backup ──────────────────────────────────────────────────────
+    // Nunca expone la ruta física — sirve el archivo vía PHP con headers seguros
+    case 'download':
+        $file = basename(get('file'));   // basename() previene path traversal
         $path = realpath($backupDir . '/' . $file);
-        
-        // Validar que el archivo esté en la carpeta permitida
-        if ($path && str_starts_with($path, realpath($backupDir)) && str_ends_with($path, '.sql')) {
+
+        if (!$path
+            || !str_starts_with($path, realpath($backupDir))
+            || (!str_ends_with($path, '.zip') && !str_ends_with($path, '.sql'))
+        ) {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'error' => 'Archivo no válido.']);
+            exit;
+        }
+
+        $mime = str_ends_with($path, '.zip') ? 'application/zip' : 'application/octet-stream';
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: attachment; filename="' . $file . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        readfile($path);
+        exit;
+
+    // ── Eliminar backup ───────────────────────────────────────────────────────
+    case 'delete':
+        header('Content-Type: application/json');
+        $file = basename(get('file'));
+        $path = realpath($backupDir . '/' . $file);
+
+        if ($path
+            && str_starts_with($path, realpath($backupDir))
+            && (str_ends_with($path, '.zip') || str_ends_with($path, '.sql'))
+        ) {
             unlink($path);
             echo json_encode(['ok' => true]);
         } else {
@@ -79,71 +117,96 @@ switch ($action) {
         }
         break;
 
+    // ── Restaurar backup ──────────────────────────────────────────────────────
+    // Operación destructiva: requiere CSRF + confirmación explícita
     case 'restore':
-        $file = get('file');
+        header('Content-Type: application/json');
+        csrfVerify(true);   // falla con JSON si el token no es válido
+
+        $file    = basename(get('file'));
         $confirm = post('confirm');
-        $path = realpath($backupDir . '/' . $file);
+        $path    = realpath($backupDir . '/' . $file);
 
         if ($confirm !== 'CONFIRMAR') {
             echo json_encode(['ok' => false, 'error' => 'Debes escribir CONFIRMAR correctamente.']);
             exit;
         }
 
-        if ($path && str_starts_with($path, realpath($backupDir)) && str_ends_with($path, '.sql')) {
-            try {
-                $sql = file_get_contents($path);
-                $db = getDB();
-                
-                $db->beginTransaction();
-                $db->exec("SET FOREIGN_KEY_CHECKS=0;");
-                
-                // Dividir el SQL por punto y coma (rudimentario pero efectivo para backups sencillos)
-                // Usamos un regex para no dividir dentro de strings. Mejor: ejecutar el bloque completo si PDO lo permite.
-                $db->exec($sql);
-                
-                $db->exec("SET FOREIGN_KEY_CHECKS=1;");
-                $db->commit();
-                
-                // Limpiar sesiones tras restaurar ya que los datos de usuario pueden haber cambiado
-                session_destroy();
-                echo json_encode(['ok' => true]);
-            } catch (Exception $e) {
-                if ($db->inTransaction()) $db->rollBack();
-                echo json_encode(['ok' => false, 'error' => 'Fallo al restaurar: ' . $e->getMessage()]);
-            }
-        } else {
+        if (!$path
+            || !str_starts_with($path, realpath($backupDir))
+            || (!str_ends_with($path, '.zip') && !str_ends_with($path, '.sql'))
+        ) {
             echo json_encode(['ok' => false, 'error' => 'Archivo de backup no encontrado.']);
+            exit;
+        }
+
+        try {
+            $db = getDB();
+            // SET FOREIGN_KEY_CHECKS fuera de transacción — los DDL causan commit
+            // implícito en MariaDB/MySQL, por lo que la transacción no aporta aquí
+            $db->exec("SET FOREIGN_KEY_CHECKS=0;");
+
+            if (str_ends_with($path, '.zip')) {
+                // ── Formato ZIP (nuevo) ───────────────────────────────────
+                $zip = new ZipArchive();
+                if ($zip->open($path) !== true) {
+                    throw new Exception('No se pudo abrir el archivo ZIP.');
+                }
+
+                $sqlContent = $zip->getFromName('database.sql');
+                if ($sqlContent === false) {
+                    $zip->close();
+                    throw new Exception('El archivo ZIP no contiene database.sql.');
+                }
+
+                $logoContent = $zip->getFromName('assets/logo.png');
+                $zip->close();
+
+                $db->exec($sqlContent);
+
+                if ($logoContent !== false) {
+                    $logoDir = __DIR__ . '/../assets/';
+                    if (!is_dir($logoDir)) @mkdir($logoDir, 0755, true);
+                    file_put_contents($logoDir . 'logo.png', $logoContent);
+                }
+            } else {
+                // ── Formato SQL legacy ────────────────────────────────────
+                $db->exec(file_get_contents($path));
+            }
+
+            $db->exec("SET FOREIGN_KEY_CHECKS=1;");
+            session_destroy();
+            echo json_encode(['ok' => true]);
+        } catch (Exception $e) {
+            echo json_encode(['ok' => false, 'error' => 'Fallo al restaurar: ' . $e->getMessage()]);
         }
         break;
 
+    // ── Check auto-backup semanal ─────────────────────────────────────────────
     case 'auto_check':
-        // Check silencioso para el Weekly Backup
-        $auto = (bool)getConfig('backup_auto', false);
-        if (!$auto) {
+        header('Content-Type: application/json');
+        if (!(bool)getConfig('backup_auto', false)) {
             echo json_encode(['ok' => true, 'msg' => 'Auto-backup desactivado.']);
             exit;
         }
 
         $last = (int)getConfig('ultimo_backup_auto', 0);
-        $week = 7 * 24 * 3600;
-
-        if (time() - $last > $week) {
+        if (time() - $last > 7 * 24 * 3600) {
             try {
-                $filename = 'backup_auto_' . date('Y-m-d_H-i-s') . '.sql';
-                $path = $backupDir . '/' . $filename;
-                $sql = generateSQLDump();
-                file_put_contents($path, $sql);
-                
+                $filename = 'backup_auto_' . date('Y-m-d_H-i-s') . '.zip';
+                $path     = $backupDir . '/' . $filename;
+                generateBackupZip($path);
                 setConfig('ultimo_backup_auto', time());
-                
-                // Rotación automáticos según límite configurable
-                $maxAuto = max(1, (int)getConfig('backup_max_auto', 4));
-                $autoFiles = glob($backupDir . '/backup_auto_*.sql') ?: [];
+
+                // Rotar auto-backups
+                $maxAuto   = max(1, (int)getConfig('backup_max_auto', 4));
+                $autoFiles = array_merge(
+                    glob($backupDir . '/backup_auto_*.zip') ?: [],
+                    glob($backupDir . '/backup_auto_*.sql') ?: []
+                );
                 usort($autoFiles, fn($a, $b) => filemtime($a) - filemtime($b));
-                while (count($autoFiles) > $maxAuto) {
-                    @unlink(array_shift($autoFiles));
-                }
-                
+                while (count($autoFiles) > $maxAuto) @unlink(array_shift($autoFiles));
+
                 echo json_encode(['ok' => true, 'msg' => 'Auto-backup realizado.']);
             } catch (Exception $e) {
                 echo json_encode(['ok' => false, 'error' => $e->getMessage()]);
@@ -153,7 +216,9 @@ switch ($action) {
         }
         break;
 
+    // ── Guardar configuración ─────────────────────────────────────────────────
     case 'set_config':
+        header('Content-Type: application/json');
         $key = get('key');
         $val = get('val');
         if (in_array($key, ['backup_auto', 'backup_max_manuales', 'backup_max_auto'])) {
@@ -165,17 +230,14 @@ switch ($action) {
         break;
 
     default:
+        header('Content-Type: application/json');
         echo json_encode(['ok' => false, 'error' => 'Acción no reconocida.']);
 }
 
-// generateSQLDump() está definida en includes/functions.php
-
-function formatBytes($bytes, $precision = 2) {
+// ── Helper local de formato de tamaño ─────────────────────────────────────────
+function formatBackupBytes(int $bytes, int $precision = 2): string {
     if ($bytes <= 0) return '0 B';
-    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    $bytes = max($bytes, 0);
-    $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-    $pow = min($pow, count($units) - 1);
-    $bytes /= pow(1024, $pow);
-    return round($bytes, $precision) . ' ' . $units[$pow];
+    $units = ['B', 'KB', 'MB', 'GB'];
+    $pow   = min((int)floor(log($bytes, 1024)), count($units) - 1);
+    return round($bytes / pow(1024, $pow), $precision) . ' ' . $units[$pow];
 }

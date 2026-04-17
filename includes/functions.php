@@ -364,6 +364,31 @@ function redirect(string $url): void {
     exit;
 }
 
+// ─── Backup completo (ZIP: database.sql + assets/logo.png) ──────────────
+function generateBackupZip(string $targetPath): void {
+    if (!class_exists('ZipArchive')) {
+        throw new Exception('La extensión ZipArchive no está disponible en este servidor.');
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($targetPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        throw new Exception('No se pudo crear el archivo ZIP en ' . basename($targetPath) . '.');
+    }
+
+    // Volcado completo de BD
+    $zip->addFromString('database.sql', generateSQLDump());
+
+    // Logo de empresa (archivo user-specific, no está en el repositorio)
+    $logo = __DIR__ . '/../assets/logo.png';
+    if (file_exists($logo)) {
+        $zip->addFile($logo, 'assets/logo.png');
+    }
+
+    if ($zip->close() === false) {
+        throw new Exception('Error al finalizar el archivo ZIP.');
+    }
+}
+
 // ─── Volcado SQL (Backup) ─────────────────────────────────────
 function generateSQLDump(): string {
     $db = getDB();

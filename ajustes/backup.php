@@ -160,7 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const formData = new FormData();
                 formData.append('confirm', confirmInput.value);
-                const res = await fetch(`backup_process.php?action=restore&file=${restoreSelect.value}`, {
+                formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]')?.content || '');
+                const res = await fetch(`backup_process.php?action=restore&file=${encodeURIComponent(restoreSelect.value)}`, {
                     method: 'POST', body: formData
                 });
                 const data = await res.json();
@@ -208,7 +209,7 @@ async function loadBackups() {
                 <td>${b.size}</td>
                 <td class="text-end">
                     <div class="btn-group btn-group-sm">
-                        <a href="backup_process.php?action=download&file=${b.name}" class="btn btn-outline-secondary" title="Descargar" download><i class="bi bi-download"></i></a>
+                        <button class="btn btn-outline-secondary" onclick="downloadBackup('${b.name}')" title="Descargar"><i class="bi bi-download"></i></button>
                         <button class="btn btn-outline-danger" onclick="deleteBackup('${b.name}')" title="Eliminar"><i class="bi bi-trash"></i></button>
                     </div>
                 </td>
@@ -244,6 +245,16 @@ async function createBackup() {
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-2"></i>GENERAR BACKUP AHORA';
     }
+}
+
+function downloadBackup(file) {
+    // El servidor sirve el archivo con Content-Disposition; nunca se expone la ruta física
+    const a = document.createElement('a');
+    a.href = `backup_process.php?action=download&file=${encodeURIComponent(file)}`;
+    a.download = file;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 function deleteBackup(file) {
