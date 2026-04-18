@@ -173,7 +173,15 @@ $currentVer = defined('APP_VERSION') ? APP_VERSION : '1.0';
                 <i class="bi bi-check-lg" style="font-size: 4rem;"></i>
             </div>
             <h3 class="fw-bold mb-2">¡Actualización exitosa!</h3>
-            <p class="text-muted mb-4">Libro Contable se ha actualizado correctamente a la versión <strong id="u_finalVer"></strong>.</p>
+            <p class="text-muted mb-3">Libro Contable se ha actualizado correctamente a la versión <strong id="u_finalVer"></strong>.</p>
+            <div id="u_migrationLog" class="d-none text-start mb-4" style="font-size:.78rem;">
+              <div class="border rounded p-3" style="background:var(--surface-2);max-height:160px;overflow-y:auto;">
+                <div class="fw-bold mb-2" style="color:var(--text-2)"><i class="bi bi-database-gear me-1"></i>Migraciones de base de datos</div>
+                <div id="u_migApplied" class="d-none mb-1"></div>
+                <div id="u_migSkipped" class="d-none mb-1"></div>
+                <div id="u_migErrors" class="d-none"></div>
+              </div>
+            </div>
             <button class="btn btn-success w-100 py-3 fw-bold rounded-pill shadow-sm" onclick="location.href='/index.php'">
                 FINALIZAR Y VOLVER
             </button>
@@ -235,6 +243,34 @@ async function runUpdateSteps() {
 
             if (!data.ok) {
                 throw new Error(data.error || 'Fallo en el paso: ' + step.label);
+            }
+
+            if (step.id === 'install' && data.migrations) {
+                const m = data.migrations;
+                const log = document.getElementById('u_migrationLog');
+                log.classList.remove('d-none');
+
+                if (m.applied?.length) {
+                    const el = document.getElementById('u_migApplied');
+                    el.classList.remove('d-none');
+                    el.innerHTML = '<span class="text-success fw-bold">Aplicadas (' + m.applied.length + '):</span> '
+                        + m.applied.map(f => '<code>' + f + '</code>').join(', ');
+                }
+                if (m.skipped?.length) {
+                    const el = document.getElementById('u_migSkipped');
+                    el.classList.remove('d-none');
+                    el.innerHTML = '<span class="text-muted fw-bold">Omitidas (' + m.skipped.length + '):</span> '
+                        + m.skipped.map(f => '<code>' + f + '</code>').join(', ');
+                }
+                if (m.errors?.length) {
+                    const el = document.getElementById('u_migErrors');
+                    el.classList.remove('d-none');
+                    el.innerHTML = '<span class="text-danger fw-bold">Errores (' + m.errors.length + '):</span> '
+                        + m.errors.map(e => '<code>' + e + '</code>').join('<br>');
+                }
+                if (!m.applied?.length && !m.skipped?.length && !m.errors?.length) {
+                    document.getElementById('u_migrationLog').classList.add('d-none');
+                }
             }
 
             if (step.id === 'finalize') {

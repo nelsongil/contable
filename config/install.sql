@@ -119,4 +119,14 @@ INSERT IGNORE INTO configuracion (clave, valor) VALUES
     ('factura_prefijo',       'F'),
     ('factura_ceros',         '4');
 
+-- ─── Registro de migraciones aplicadas ──────────────────────
+CREATE TABLE IF NOT EXISTS migration_log (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    archivo       VARCHAR(200) NOT NULL,
+    version       VARCHAR(20)  NULL,
+    ejecutada_en  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    estado        ENUM('ok','error') NOT NULL DEFAULT 'ok',
+    error_detalle TEXT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 1;

@@ -146,35 +146,83 @@ switch ($step) {
             
             rcopy_recursive($source, $target, $exclude);
 
-            // Migraciones SQL — cada fichero se ejecuta de forma independiente;
-            // un error en uno no impide que los siguientes se ejecuten.
-            // Las migraciones deben ser idempotentes (IF NOT EXISTS, INSERT IGNORE, DROP IF EXISTS).
-            $migrationsDir = $source . '/config/migrations';
-            $migrationErrors = [];
+            // ── Migraciones SQL con control de ejecución única ────────────────
+            // Cada migración se registra en migration_log al ejecutarse.
+            // Las ya aplicadas con éxito se saltan en actualizaciones posteriores.
+            // Un error en una migración no impide las siguientes.
+            $migrationsDir    = $source . '/config/migrations';
+            $migrationErrors  = [];
+            $migrationsApplied = [];
+            $migrationsSkipped = [];
+
             if (is_dir($migrationsDir)) {
-                $files = scandir($migrationsDir);
-                sort($files);
-                $db = getDB();
+                $db         = getDB();
+                $newVerNum  = $updateData ? ltrim($updateData['version'], 'v') : null;
+
+                // Garantizar que migration_log existe antes de cualquier consulta
+                $db->exec("CREATE TABLE IF NOT EXISTS migration_log (
+                    id            INT AUTO_INCREMENT PRIMARY KEY,
+                    archivo       VARCHAR(200) NOT NULL,
+                    version       VARCHAR(20)  NULL,
+                    ejecutada_en  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                    estado        ENUM('ok','error') NOT NULL DEFAULT 'ok',
+                    error_detalle TEXT NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+                // Conjunto de migraciones ya aplicadas con éxito (O(1) lookup)
+                $applied = array_flip(
+                    $db->query("SELECT archivo FROM migration_log WHERE estado='ok'")
+                       ->fetchAll(PDO::FETCH_COLUMN, 0)
+                );
+
+                $files = array_values(array_filter(
+                    scandir($migrationsDir),
+                    fn($f) => pathinfo($f, PATHINFO_EXTENSION) === 'sql'
+                ));
+                sort($files); // orden cronológico por prefijo de fecha
+
                 foreach ($files as $f) {
-                    if (pathinfo($f, PATHINFO_EXTENSION) === 'sql') {
-                        $sql = file_get_contents($migrationsDir . '/' . $f);
-                        if (!empty(trim($sql))) {
-                            try {
-                                $db->exec($sql);
-                            } catch (PDOException $me) {
-                                // Registrar el error pero continuar con el resto de migraciones
-                                $migrationErrors[] = $f . ': ' . $me->getMessage();
-                            }
-                        }
+                    if (isset($applied[$f])) {
+                        $migrationsSkipped[] = $f;
+                        continue;
+                    }
+
+                    $sql = file_get_contents($migrationsDir . '/' . $f);
+                    if (empty(trim($sql))) {
+                        $migrationsSkipped[] = $f;
+                        continue;
+                    }
+
+                    try {
+                        $db->exec($sql);
+                        $db->prepare(
+                            "INSERT INTO migration_log (archivo, version, estado)
+                             VALUES (?, ?, 'ok')"
+                        )->execute([$f, $newVerNum]);
+                        $migrationsApplied[] = $f;
+                    } catch (PDOException $me) {
+                        $err = $me->getMessage();
+                        $migrationErrors[] = $f . ': ' . $err;
+                        $db->prepare(
+                            "INSERT INTO migration_log (archivo, version, estado, error_detalle)
+                             VALUES (?, ?, 'error', ?)"
+                        )->execute([$f, $newVerNum, $err]);
                     }
                 }
             }
-            // Si alguna migración falló, incluirlo en la respuesta como advertencia (no error fatal)
+
             if ($migrationErrors) {
-                error_log('[update] Advertencias en migraciones: ' . implode(' | ', $migrationErrors));
+                error_log('[update] Errores en migraciones: ' . implode(' | ', $migrationErrors));
             }
 
-            echo json_encode(['ok' => true]);
+            echo json_encode([
+                'ok'         => true,
+                'migrations' => [
+                    'applied' => $migrationsApplied,
+                    'skipped' => $migrationsSkipped,
+                    'errors'  => $migrationErrors,
+                ],
+            ]);
         } catch (Exception $e) {
             echo json_encode(['ok' => false, 'error' => 'Fallo en instalación: ' . $e->getMessage()]);
         }
