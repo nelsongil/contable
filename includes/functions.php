@@ -469,7 +469,7 @@ function getCategoriaGasto(int $id): array|false {
  * Los tooltips se inicializan globalmente en footer.php.
  */
 function helpTip(string $tip, string $placement = 'top'): string {
-    return ' <i class="bi bi-question-circle help-tip"'
+    return ' <i class="bi bi-info-circle-fill help-tip"'
          . ' data-bs-toggle="tooltip"'
          . ' data-bs-placement="' . $placement . '"'
          . ' data-bs-title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8') . '"></i>';

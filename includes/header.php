@@ -330,8 +330,8 @@ a, button, .btn, select, label[for], [role="button"], .fact-row,
 #sidebarBackdrop.show { display: block; }
 
 /* ── Help tips ── */
-.help-tip { color: var(--text-3); font-size: .8em; margin-left: .2em; cursor: help; vertical-align: middle; }
-.help-tip:hover { color: var(--verde-a); }
+.help-tip { color: var(--verde-a); font-size: .85em; margin-left: .25em; cursor: help; vertical-align: middle; opacity: .75; }
+.help-tip:hover { opacity: 1; }
 .tooltip { --bs-tooltip-max-width: 300px; }
 
 /* ══ RESPONSIVE ══ */
