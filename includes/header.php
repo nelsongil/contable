@@ -451,8 +451,12 @@ if ($update && $update['version'] !== $dismissed):
 
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
-  <?php $sbLogo = getConfig('invoice_logo', ''); if ($sbLogo): ?>
-  <a href="/" class="sidebar-logo-img">
+  <?php
+  $sbLogo = getConfig('invoice_logo', '');
+  $logoBg = getConfig('logo_background_color', 'transparent');
+  if ($sbLogo):
+  ?>
+  <a href="/" class="sidebar-logo-img" style="background-color: <?= e($logoBg) ?>;">
     <img src="<?= e($sbLogo) ?>" alt="<?= e(getConfig('empresa_sociedad', EMPRESA_SOCIEDAD)) ?>">
   </a>
   <?php endif; ?>
@@ -467,6 +471,9 @@ if ($update && $update['version'] !== $dismissed):
   </a>
 
   <div class="nav-section">Facturación</div>
+  <a href="/facturas/nueva.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/facturas/nueva') ? 'active' : '' ?>">
+    <i class="bi bi-plus-circle"></i> Nueva factura
+  </a>
   <a href="/facturas/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/facturas/') && !str_contains($_SERVER['REQUEST_URI'],'/facturas/nueva') ? 'active' : '' ?>">
     <i class="bi bi-receipt"></i>
     <span>Facturas emitidas</span>
@@ -474,16 +481,11 @@ if ($update && $update['version'] !== $dismissed):
     <span class="position-absolute translate-middle p-1 bg-danger border border-light rounded-circle" style="top: 15px; left: 25px;" title="<?= $cntBorradores ?> borradores pendientes" data-bs-toggle="tooltip"></span>
     <?php endif; ?>
   </a>
-  <a href="/facturas/nueva.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/facturas/nueva') ? 'active' : '' ?>">
-    <i class="bi bi-plus-circle"></i> Nueva factura
-  </a>
-
-  <div class="nav-section">Compras</div>
-  <a href="/compras/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/compras') && !str_contains($_SERVER['REQUEST_URI'],'/compras/nueva') ? 'active' : '' ?>">
-    <i class="bi bi-bag"></i> Facturas recibidas
-  </a>
   <a href="/compras/nueva.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/compras/nueva') ? 'active' : '' ?>">
     <i class="bi bi-plus-circle"></i> Nueva compra
+  </a>
+  <a href="/compras/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/compras') && !str_contains($_SERVER['REQUEST_URI'],'/compras/nueva') ? 'active' : '' ?>">
+    <i class="bi bi-bag"></i> Facturas recibidas
   </a>
 
   <div class="nav-section">Agenda</div>
@@ -494,14 +496,37 @@ if ($update && $update['version'] !== $dismissed):
     <i class="bi bi-truck"></i> Proveedores
   </a>
 
-  <div class="nav-section">Informes</div>
   <?php if (getConfig('modulo_empleados', false)): ?>
+  <div class="nav-section">Laboral</div>
   <a href="/empleados/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/') && !str_contains($_SERVER['REQUEST_URI'],'retenciones') && !str_contains($_SERVER['REQUEST_URI'],'modelo111') ? 'active' : '' ?>">
     <i class="bi bi-person-badge"></i> Empleados
   </a>
+  <a href="/empleados/retenciones.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/retenciones') ? 'active' : '' ?>">
+    <i class="bi bi-calendar3"></i> Retenciones mensuales
+  </a>
   <?php endif; ?>
+
+  <div class="nav-section">Libros</div>
   <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') && !str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') && !str_contains($_SERVER['REQUEST_URI'],'/libros/modelo') ? 'active' : '' ?>">
     <i class="bi bi-journal-text"></i> Libros contables
+  </a>
+  <a class="nav-link" style="opacity:.45; cursor:default;" tabindex="-1" aria-disabled="true">
+    <i class="bi bi-download"></i>
+    <span>Exportación AEAT</span>
+    <span class="badge ms-auto" style="font-size:.6rem;background:var(--gold);color:#1e1b4b;">Próximamente</span>
+  </a>
+
+  <div class="nav-section">Fiscal</div>
+  <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">
+    <i class="bi bi-bar-chart"></i> Resumen trimestral
+  </a>
+  <a class="nav-link" style="opacity:.45; cursor:default;" tabindex="-1" aria-disabled="true">
+    <i class="bi bi-file-earmark-text"></i>
+    <span>Modelo 303</span>
+    <span class="badge ms-auto" style="font-size:.6rem;background:var(--gold);color:#1e1b4b;">Próximamente</span>
+  </a>
+  <a href="/libros/modelo130.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo130') ? 'active' : '' ?>">
+    <i class="bi bi-file-earmark-text"></i> Modelo 130
   </a>
   <?php if (getConfig('modulo_empleados', false)): ?>
   <a href="/empleados/modelo111.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/modelo111') ? 'active' : '' ?>">
@@ -511,20 +536,9 @@ if ($update && $update['version'] !== $dismissed):
   <a href="/libros/modelo115.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo115') ? 'active' : '' ?>">
     <i class="bi bi-file-earmark-text"></i> Modelo 115
   </a>
-  <a href="/libros/modelo130.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo130') ? 'active' : '' ?>">
-    <i class="bi bi-file-earmark-text"></i> Modelo 130
-  </a>
   <a href="/libros/modelo347.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo347') ? 'active' : '' ?>">
     <i class="bi bi-people"></i> Modelo 347
   </a>
-  <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">
-    <i class="bi bi-bar-chart"></i> Resumen fiscal
-  </a>
-  <?php if (getConfig('modulo_empleados', false)): ?>
-  <a href="/empleados/retenciones.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/retenciones') ? 'active' : '' ?>">
-    <i class="bi bi-calendar3"></i> Retenciones mensuales
-  </a>
-  <?php endif; ?>
 
   <div class="nav-section">Configuración</div>
   <a href="/ajustes/empresa.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>">

@@ -41,6 +41,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         setConfig('theme_color_accent',  post('theme_color_accent'));
         setConfig('theme_color_gold',    post('theme_color_gold'));
         setConfig('theme_color_bg',      post('theme_color_bg'));
+
+        // Fondo del logotipo en sidebar
+        $logoBgVal = post('logo_bg_custom') && post('logo_bg') === 'custom'
+            ? post('logo_bg_custom')
+            : (post('logo_bg') ?: 'transparent');
+        setConfig('logo_background_color', $logoBgVal);
     }
 
     flash('Tema de interfaz actualizado correctamente.');
@@ -83,7 +89,7 @@ require_once __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-        <div class="card">
+        <div class="card mb-4">
             <div class="card-header">Personalización Manual</div>
             <div class="card-body">
                 <form id="formTema" method="POST">
@@ -108,6 +114,77 @@ require_once __DIR__ . '/../includes/header.php';
                             <label class="form-label">Color de Fondo</label>
                             <input type="color" name="theme_color_bg" class="form-control form-control-color w-100" value="<?= e(getConfig('theme_color_bg', '#F4F7F5')) ?>">
                         </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <?php
+        $currentLogoBg  = getConfig('logo_background_color', 'transparent');
+        $logoBgPreset   = in_array($currentLogoBg, ['transparent', '#ffffff', '#000000'])
+                          ? $currentLogoBg : 'custom';
+        $logoBgCustom   = ($logoBgPreset === 'custom') ? $currentLogoBg : '#ffffff';
+        $sbLogo         = getConfig('invoice_logo', '');
+        ?>
+        <div class="card">
+            <div class="card-header">Fondo del logotipo en sidebar</div>
+            <div class="card-body">
+                <form method="POST">
+                    <p class="small text-muted mb-3">
+                        Controla el fondo del área del logo en la barra lateral.
+                        Solo tiene efecto si has subido un logo en <a href="/ajustes/plantilla.php">Plantilla factura</a>.
+                    </p>
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-6">
+                            <div class="d-flex flex-column gap-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="logo_bg" id="logoBgTransparent"
+                                           value="transparent" <?= $logoBgPreset === 'transparent' ? 'checked' : '' ?>
+                                           onchange="updateLogoBgPreview()">
+                                    <label class="form-check-label" for="logoBgTransparent">Transparente</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="logo_bg" id="logoBgWhite"
+                                           value="#ffffff" <?= $logoBgPreset === '#ffffff' ? 'checked' : '' ?>
+                                           onchange="updateLogoBgPreview()">
+                                    <label class="form-check-label" for="logoBgWhite">Blanco</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="logo_bg" id="logoBgBlack"
+                                           value="#000000" <?= $logoBgPreset === '#000000' ? 'checked' : '' ?>
+                                           onchange="updateLogoBgPreview()">
+                                    <label class="form-check-label" for="logoBgBlack">Negro</label>
+                                </div>
+                                <div class="form-check d-flex align-items-center gap-2">
+                                    <input class="form-check-input" type="radio" name="logo_bg" id="logoBgCustom"
+                                           value="custom" <?= $logoBgPreset === 'custom' ? 'checked' : '' ?>
+                                           onchange="updateLogoBgPreview()">
+                                    <label class="form-check-label" for="logoBgCustom">Personalizado</label>
+                                    <input type="color" id="logoBgCustomPicker" name="logo_bg_custom"
+                                           value="<?= e($logoBgCustom) ?>"
+                                           class="form-control form-control-color"
+                                           style="width:40px; height:30px; padding:2px;"
+                                           oninput="document.getElementById('logoBgCustom').checked=true; updateLogoBgPreview()">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 text-center">
+                            <p class="small text-muted mb-2">Vista previa</p>
+                            <div id="logoBgPreview"
+                                 style="background:<?= e($currentLogoBg) ?>; padding:1rem; border-radius:8px; border:1px dashed var(--border); min-height:80px; display:flex; align-items:center; justify-content:center;">
+                                <?php if ($sbLogo): ?>
+                                <img src="<?= e($sbLogo) ?>" alt="Logo"
+                                     style="max-height:48px; max-width:160px; object-fit:contain;">
+                                <?php else: ?>
+                                <span class="text-muted small">Sin logo subido</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-gold btn-sm px-4">
+                            <i class="bi bi-save me-1"></i> Guardar fondo
+                        </button>
                     </div>
                 </form>
             </div>
@@ -141,19 +218,28 @@ function refreshPreview() {
     const primary = document.querySelector('[name="theme_color_primary"]').value;
     const medium  = document.querySelector('[name="theme_color_medium"]').value;
     const gold    = document.querySelector('[name="theme_color_gold"]').value;
-    
+
     document.getElementById('sidebarPreview').style.background = primary;
     document.getElementById('sidebarPreview').firstElementChild.style.borderColor = gold;
     document.getElementById('sidebarPreview').firstElementChild.firstElementChild.style.color = gold;
-    
+
     const activeLink = document.getElementById('navLinkPreview');
     activeLink.style.background = medium;
     activeLink.style.borderLeftColor = gold;
 }
-document.querySelectorAll('input[type="color"]').forEach(el => {
+document.querySelectorAll('[name^="theme_color"]').forEach(el => {
     el.addEventListener('input', refreshPreview);
 });
 refreshPreview();
+
+function updateLogoBgPreview() {
+    const selected = document.querySelector('input[name="logo_bg"]:checked');
+    if (!selected) return;
+    const val = selected.value === 'custom'
+        ? document.getElementById('logoBgCustomPicker').value
+        : selected.value;
+    document.getElementById('logoBgPreview').style.background = val;
+}
 </script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
