@@ -57,7 +57,17 @@ La versión de la aplicación vive **únicamente** en el archivo `/VERSION` en l
 
 **El PATCH se incrementa automáticamente** en cada `git push` a `main` mediante el workflow `.github/workflows/release.yml`. El bot commitea el nuevo VERSION con `[skip ci]` y crea el Release + ZIP en GitHub.
 
-**Cuándo tocar VERSION manualmente:**
+**Regla de oro: la numeración es automática por defecto.**
+El CI siempre incrementa el PATCH en cada push. Solo se toca VERSION manualmente cuando el usuario pide explícitamente un cambio de MINOR o MAJOR; tras ese commit, el CI retoma el auto-incremento desde la nueva base.
+
+**Resultado real al hacer un bump manual:**
+- Se establece `VERSION = 1.7.0` antes del commit
+- El CI incrementa PATCH en ese push → release `v1.7.1`
+- Siguientes commits: `v1.7.2`, `v1.7.3`… hasta el próximo bump manual
+
+No existe un release `x.y.0` (el CI siempre suma 1 al PATCH). El salto de MINOR/MAJOR se comunica por el cambio en esos componentes, no porque el PATCH sea exactamente 0.
+
+**Cuándo tocar VERSION manualmente (solo si el usuario lo pide):**
 - Subir MINOR o MAJOR → editar `/VERSION` antes del commit
 - Evitar release en un push concreto → añadir `[no-release]` al mensaje del commit
 
@@ -65,8 +75,9 @@ La versión de la aplicación vive **únicamente** en el archivo `/VERSION` en l
 # Ver versión actual
 cat VERSION
 
-# Subir MINOR manualmente (ejemplo: 1.5.x → 1.6.0)
-echo -n "1.6.0" > VERSION
+# Subir MINOR manualmente (ejemplo: 1.6.x → 1.7.x)
+# El CI convertirá 1.7.0 en 1.7.1 al hacer push
+printf "1.7.0" > VERSION
 ```
 
 - **MAJOR** (X.0.0): cambio arquitectural incompatible
