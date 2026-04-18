@@ -251,6 +251,26 @@ El formulario `compras/nueva.php` tiene un panel drag & drop que llama al endpoi
 
 ---
 
+## Exportación AEAT — Libros Registro (v1.7+)
+
+Genera los Libros Registro de Facturas Expedidas y Recibidas en formato CSV según Orden HAC/773/2019.
+
+- **Página:** `libros/exportacion_aeat.php` — filtro por año y trimestre, contadores, botones de descarga
+- **Generador:** `libros/exportacion_aeat_process.php` — standalone (sin header.php), parámetros GET: `tipo`, `anio`, `trimestre`
+- **Formato:** CSV separado por `;`, UTF-8 con BOM, fechas `DD/MM/AAAA`, decimales con coma (`1.234,56`)
+- **`categorias_gasto.codigo_aeat`:** columna VARCHAR(3) que mapea cada categoría a un código AEAT G01-G39.
+  El proceso usa `COALESCE(cg.codigo_aeat, 'G16')` — fallback G16 si la factura no tiene categoría.
+
+### Deuda técnica conocida (exportación AEAT)
+
+| Campo | Valor actual | Cuándo cambiar |
+|---|---|---|
+| `tipo_factura` | Hardcodeado `F1` | Cuando se implementen facturas rectificativas — añadir columna a `facturas_emitidas` y `facturas_recibidas` |
+| `concepto_ingreso` | Hardcodeado `I01` | Si se necesita soportar regímenes distintos a estimación directa IRPF |
+| Nº recepción recibidas | `id` de la tabla | Correlativo único, cumple requisito AEAT; no requiere cambio |
+
+---
+
 ## Sistema de Backup (v1.3+)
 
 - **Manual:** `ajustes/backup.php` → botón que llama `ajustes/backup_process.php` vía AJAX

@@ -510,10 +510,8 @@ if ($update && $update['version'] !== $dismissed):
   <a href="/libros/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros') && !str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') && !str_contains($_SERVER['REQUEST_URI'],'/libros/modelo') ? 'active' : '' ?>">
     <i class="bi bi-journal-text"></i> Libros contables
   </a>
-  <a class="nav-link" style="opacity:.45; cursor:default;" tabindex="-1" aria-disabled="true">
-    <i class="bi bi-download"></i>
-    <span>Exportación AEAT</span>
-    <span class="badge ms-auto" style="font-size:.6rem;background:var(--gold);color:#1e1b4b;">Próximamente</span>
+  <a href="/libros/exportacion_aeat.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/exportacion_aeat') ? 'active' : '' ?>">
+    <i class="bi bi-download"></i> Exportación AEAT
   </a>
 
   <div class="nav-section">Fiscal</div>

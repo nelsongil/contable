@@ -11,10 +11,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $accion = post('accion');
 
     if ($accion === 'guardar') {
-        $id     = (int)post('id');
-        $nombre = trim(post('nombre'));
-        $pct_iva  = min(100, max(0, (float)str_replace(',', '.', post('pct_iva_deducible',  '100'))));
-        $pct_irpf = min(100, max(0, (float)str_replace(',', '.', post('pct_irpf_deducible', '100'))));
+        $id         = (int)post('id');
+        $nombre     = trim(post('nombre'));
+        $pct_iva    = min(100, max(0, (float)str_replace(',', '.', post('pct_iva_deducible',  '100'))));
+        $pct_irpf   = min(100, max(0, (float)str_replace(',', '.', post('pct_irpf_deducible', '100'))));
+        $codigo_raw = strtoupper(trim(post('codigo_aeat', '')));
+        // Validar código AEAT: G seguido de 2 dígitos (G01-G39), o vacío
+        $codigo_aeat = preg_match('/^G\d{2}$/', $codigo_raw) ? $codigo_raw : null;
 
         if (!$nombre) {
             flash('El nombre de la categoría es obligatorio.', 'error');
@@ -24,16 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id) {
             $db->prepare(
                 "UPDATE categorias_gasto
-                 SET nombre=?, pct_iva_deducible=?, pct_irpf_deducible=?
+                 SET nombre=?, pct_iva_deducible=?, pct_irpf_deducible=?, codigo_aeat=?
                  WHERE id=?"
-            )->execute([$nombre, $pct_iva, $pct_irpf, $id]);
+            )->execute([$nombre, $pct_iva, $pct_irpf, $codigo_aeat, $id]);
             flash('Categoría actualizada.');
         } else {
             try {
                 $db->prepare(
-                    "INSERT INTO categorias_gasto (nombre, pct_iva_deducible, pct_irpf_deducible)
-                     VALUES (?, ?, ?)"
-                )->execute([$nombre, $pct_iva, $pct_irpf]);
+                    "INSERT INTO categorias_gasto (nombre, pct_iva_deducible, pct_irpf_deducible, codigo_aeat)
+                     VALUES (?, ?, ?, ?)"
+                )->execute([$nombre, $pct_iva, $pct_irpf, $codigo_aeat]);
                 flash('Categoría creada correctamente.');
             } catch (PDOException $e) {
                 if ($e->getCode() == 23000) {
@@ -110,6 +113,7 @@ require_once __DIR__ . '/../includes/header.php';
           <thead>
             <tr>
               <th>Nombre</th>
+              <th class="text-center" style="width:95px">Cód. AEAT</th>
               <th class="text-center" style="width:130px">% IVA deducible</th>
               <th class="text-center" style="width:130px">% IRPF deducible</th>
               <th class="text-center" style="width:80px">Estado</th>
@@ -123,6 +127,13 @@ require_once __DIR__ . '/../includes/header.php';
                 <?= e($cat['nombre']) ?>
                 <?php if (!$cat['activa']): ?>
                 <span class="badge bg-secondary ms-1" style="font-size:.65rem">inactiva</span>
+                <?php endif; ?>
+              </td>
+              <td class="text-center align-middle">
+                <?php if (!empty($cat['codigo_aeat'])): ?>
+                <code style="font-size:.78rem;background:var(--surface-2);padding:2px 6px;border-radius:4px"><?= e($cat['codigo_aeat']) ?></code>
+                <?php else: ?>
+                <span class="text-muted" style="font-size:.75rem">—</span>
                 <?php endif; ?>
               </td>
               <td class="text-center align-middle">
@@ -193,11 +204,26 @@ require_once __DIR__ . '/../includes/header.php';
           <input type="hidden" name="id" value="<?= $editCat['id'] ?? 0 ?>">
           <div class="row g-3">
 
-            <div class="col-12">
+            <div class="col-md-9">
               <label class="form-label">Nombre de la categoría *</label>
               <input type="text" name="nombre" class="form-control" required
                      maxlength="100" placeholder="Ej: Vehículo — uso mixto (50%)"
                      value="<?= e($editCat['nombre'] ?? '') ?>">
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">
+                Código AEAT
+                <span class="text-muted" style="font-size:.73rem">(G01–G39)</span>
+              </label>
+              <input type="text" name="codigo_aeat" class="form-control text-uppercase"
+                     maxlength="3" placeholder="G16"
+                     pattern="[Gg]\d{2}"
+                     title="Formato: G seguido de 2 dígitos (ej: G16)"
+                     value="<?= e($editCat['codigo_aeat'] ?? '') ?>">
+              <div class="form-text">
+                Usado en la <a href="/libros/exportacion_aeat.php">exportación AEAT</a>.
+              </div>
             </div>
 
             <div class="col-md-6">
