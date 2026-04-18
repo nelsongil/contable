@@ -2,6 +2,46 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.7.x] - 2026-04-19
+
+### Added
+- **Sistema de ayuda en 3 niveles**: tooltips contextuales (`helpTip()`) en los 4 KPIs del dashboard, 5 filas clave del resumen trimestral y 3 campos del formulario de categorías de gasto.
+- **Cajas de información fiscal** (`fiscalInfoBox()`): bloques colapsables con explicación, cálculo y ejemplo numérico real en los modelos 130, 115, 347, 111 y el resumen trimestral.
+- **Manual de ayuda** (`ajustes/ayuda.php`): guía completa para autónomos en 4 secciones con accordion, orientada a tareas y con ejemplos con números reales. Incluye sección sobre exportación de libros AEAT.
+- **Enlace "Ayuda"** en la sección Configuración del menú lateral.
+
+### Fixed
+- `getCategoriasGasto()` y `getCategoriaGasto()` ahora incluyen el campo `codigo_aeat` en el SELECT.
+
+---
+
+## [1.6.18] - 2026-04-18
+
+### Added
+- **Control de migraciones SQL** (`migration_log`): cada migración se registra al ejecutarse; las ya aplicadas se saltan en actualizaciones posteriores, evitando errores por ejecuciones dobles al saltar versiones.
+- **Visualización de migraciones en el modal de actualización**: el paso `install` devuelve `applied/skipped/errors` y el modal los muestra al finalizar.
+- `migration_log` añadida a `install.sql` para fresh installs.
+
+---
+
+## [1.6.17] - 2026-04-18
+
+### Added
+- **Exportación AEAT — Libros Registro de Facturas**: genera CSV según Orden HAC/773/2019 (UTF-8 + BOM, separador `;`, decimales con coma, fechas DD/MM/AAAA). Disponible en LIBROS → Exportación AEAT.
+- **Código AEAT en categorías de gasto**: nuevo campo `codigo_aeat VARCHAR(3)` con 14 categorías preconfiguradas con códigos G01–G21.
+- `libros/exportacion_aeat.php` y `libros/exportacion_aeat_process.php`.
+- `ajustes/categorias_gasto.php` ampliado con columna y campo de edición para el código AEAT.
+
+---
+
+## [1.6.16] - 2026-04-16
+
+### Added
+- **Reorganización del sidebar**: nuevas secciones FACTURACIÓN, AGENDA, LABORAL, LIBROS, FISCAL, CONFIGURACIÓN.
+- **Fondo del logo en sidebar**: opción en Tema interfaz (Transparente / Blanco / Negro / color personalizado), guardado como `logo_background_color`.
+
+---
+
 ## [1.5.6] - 2026-03-24
 
 ### Fixed
