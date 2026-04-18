@@ -447,7 +447,7 @@ function generateSQLDump(): string {
 // ─── Categorías de gasto ─────────────────────────────────────
 function getCategoriasGasto(bool $soloActivas = true): array {
     $db  = getDB();
-    $sql = "SELECT id, nombre, pct_iva_deducible, pct_irpf_deducible, activa
+    $sql = "SELECT id, nombre, pct_iva_deducible, pct_irpf_deducible, codigo_aeat, activa
             FROM categorias_gasto"
          . ($soloActivas ? " WHERE activa = 1" : "")
          . " ORDER BY nombre";
@@ -456,11 +456,23 @@ function getCategoriasGasto(bool $soloActivas = true): array {
 
 function getCategoriaGasto(int $id): array|false {
     $st = getDB()->prepare(
-        "SELECT id, nombre, pct_iva_deducible, pct_irpf_deducible, activa
+        "SELECT id, nombre, pct_iva_deducible, pct_irpf_deducible, codigo_aeat, activa
          FROM categorias_gasto WHERE id = ?"
     );
     $st->execute([$id]);
     return $st->fetch();
+}
+
+// ─── Ayuda contextual ────────────────────────────────────────
+/**
+ * Devuelve un icono de interrogación con tooltip Bootstrap 5.
+ * Los tooltips se inicializan globalmente en footer.php.
+ */
+function helpTip(string $tip, string $placement = 'top'): string {
+    return ' <i class="bi bi-question-circle help-tip"'
+         . ' data-bs-toggle="tooltip"'
+         . ' data-bs-placement="' . $placement . '"'
+         . ' data-bs-title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8') . '"></i>';
 }
 
 // ─── Empleados ────────────────────────────────────────────────

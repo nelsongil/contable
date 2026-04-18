@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Modelo 115 — Retenciones arrendamientos';
 require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/fiscal_info.php';
 
 $anio = (int)get('anio', date('Y'));
 $db   = getDB();
@@ -38,11 +39,15 @@ $trimActual = (int)ceil(date('n') / 3);
   </div>
 </div>
 
-<div class="alert alert-info py-2 mb-4" style="font-size:.85rem; max-width:900px">
-  <i class="bi bi-info-circle me-2"></i>
-  El Modelo 115 recoge las <strong>retenciones sobre arrendamientos de inmuebles</strong> (alquiler de local u oficina).
-  Se presenta trimestralmente. Registra las facturas de alquiler en Compras con categoría <strong>Arrendamiento</strong>.
-</div>
+<?= fiscalInfoBox([
+    'title' => '¿Qué es el Modelo 115?',
+    'items' => [
+        ['label' => '¿Qué es?', 'text' => 'Declaración trimestral de las retenciones practicadas sobre alquileres de locales u oficinas para tu actividad profesional.'],
+        ['label' => '¿Quién?',  'text' => 'Lo presenta el arrendatario (tú), no el propietario. Declaras lo que retuviste al propietario del local y lo ingresas a Hacienda.'],
+        ['label' => 'Plazo',    'text' => 'Del 1 al 20 del mes siguiente al trimestre: abril (T1), julio (T2), octubre (T3), enero del año siguiente (T4).'],
+        ['label' => 'Ejemplo',  'text' => 'Alquiler de local a 1.000 €/mes. Con 19% de retención, le pagas 810 € al propietario e ingresas 190 € a Hacienda. En el año son 2.280 € a declarar.'],
+    ]
+]) ?>
 
 <!-- KPIs anuales -->
 <div class="row g-3 mb-4">

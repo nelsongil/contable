@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Resumen fiscal';
 require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/fiscal_info.php';
 
 $anio = (int)get('anio', date('Y'));
 $db   = getDB();
@@ -145,6 +146,15 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
 </style>
 
 <?php $resultado_periodo = $totIng - $totGas; ?>
+<?= fiscalInfoBox([
+    'title' => 'Cómo interpretar este resumen',
+    'items' => [
+        ['label' => 'IRPF — Modelo 130',  'text' => 'Se calcula acumulando ingresos y gastos desde enero. El 20% sobre ese acumulado, menos retenciones soportadas y pagos de trimestres anteriores, es lo que ingresas cada trimestre.'],
+        ['label' => 'IVA — Modelo 303',   'text' => 'IVA cobrado en ventas menos IVA deducible en compras. Si el resultado es positivo lo ingresas; si es negativo se compensa en el trimestre siguiente.'],
+        ['label' => 'Rendimiento final',  'text' => 'Lo que te "queda" después de restar todos los gastos y el IRPF pagado. No incluye la cuota de autónomo ni otros gastos personales.'],
+    ]
+]) ?>
+
 <!-- ═══ KPIs DEL PERIODO ═══ -->
 <div class="row g-3 mb-4">
   <div class="col-sm-4">
@@ -249,7 +259,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
 
         <!-- Base compensación anual acumulada -->
         <tr class="fw-semibold">
-          <td title="Rendimiento neto acumulado desde enero hasta el final de cada trimestre">BASE COMPENS. ANUAL</td>
+          <td>BASE COMPENS. ANUAL<?= helpTip('Rendimiento neto acumulado desde enero: ingresos acum. menos gastos acum. Es la base sobre la que se aplica el 20% del IRPF.') ?></td>
           <?php for ($t=1;$t<=4;$t++): $b=$irpfTrim[$t]['base_acum']; ?>
           <td class="<?= $b < 0 ? 'num-neg' : '' ?>"><?= money($b) ?></td>
           <?php endfor; ?>
@@ -258,7 +268,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
 
         <!-- IRPF acumulado (20% sobre base acumulada neta) -->
         <tr>
-          <td title="20% sobre el rendimiento neto acumulado desde enero (ventas acum. − gastos acum.)">IRPF ACUMULADO (20%)</td>
+          <td>IRPF ACUMULADO (20%)<?= helpTip('20% sobre el rendimiento neto acumulado desde enero (ingresos acum. − gastos acum.). Es la cuota bruta antes de restar retenciones.') ?></td>
           <?php for ($t=1;$t<=4;$t++): $ca=$irpfTrim[$t]['cuota_acum']; ?>
           <td class="<?= $ca > 0 ? 'num-neg' : 'num-neu' ?>"><?= money($ca) ?></td>
           <?php endfor; ?>
@@ -267,7 +277,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
 
         <!-- IRPF (20% acumulado, a ingresar cada trim.) -->
         <tr>
-          <td title="20% sobre base acumulada − retenciones − trimestres anteriores · lo que se ingresa en Hacienda cada trimestre">IRPF A INGRESAR (trim.)</td>
+          <td>IRPF A INGRESAR (trim.)<?= helpTip('Lo que pagas en Hacienda cada trimestre: IRPF acumulado menos retenciones ya soportadas en tus facturas y pagos de trimestres anteriores.') ?></td>
           <?php for ($t=1;$t<=4;$t++): $ai=$irpfTrim[$t]['a_ingresar']; ?>
           <td class="<?= $ai > 0 ? 'num-neg' : 'num-neu' ?>"><?= money($ai) ?></td>
           <?php endfor; ?>
@@ -333,9 +343,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
         <?php endforeach; ?>
 
         <tr>
-          <td title="IVA soportado aplicando los porcentajes de deducibilidad de cada categoría de gasto">
-            IVA SOPORTADO DEDUCIBLE
-          </td>
+          <td>IVA SOPORTADO DEDUCIBLE<?= helpTip('IVA pagado en compras, aplicando los porcentajes de deducibilidad de cada categoría. Un coche de uso mixto, por ejemplo, solo deduce el 50%.') ?></td>
           <?php for ($t=1;$t<=4;$t++): ?>
           <td class="num-pos"><?= money($ivaTrim[$t]['deducible']) ?></td>
           <?php endfor; ?>
@@ -351,7 +359,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
         </tr>
 
         <tr class="fila-total">
-          <td>RESULTANTE</td>
+          <td>RESULTANTE<?= helpTip('IVA a ingresar si es positivo, o a compensar en el trimestre siguiente si es negativo. Corresponde a la casilla 52 del Modelo 303.') ?></td>
           <?php for ($t=1;$t<=4;$t++): $r=$ivaTrim[$t]['resultado']; ?>
           <td class="<?= $r > 0 ? 'num-neg' : ($r < 0 ? 'num-pos' : 'num-neu') ?>">
             <?= money($r) ?>

@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Modelo 130 — Pago fraccionado IRPF';
 require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/fiscal_info.php';
 
 $anio = (int)get('anio', date('Y'));
 $db   = getDB();
@@ -77,11 +78,15 @@ $totalIngresado = $pagadoAcum;
   </div>
 </div>
 
-<div class="alert alert-info py-2 mb-4" style="font-size:.85rem; max-width:960px">
-  <i class="bi bi-info-circle me-2"></i>
-  El Modelo 130 es el pago fraccionado trimestral de IRPF para autónomos en estimación directa.
-  Se calcula sobre el <strong>rendimiento neto acumulado</strong> desde enero: <em>20% × (ingresos − gastos acum.) − retenciones soportadas − lo ya ingresado</em>.
-</div>
+<?= fiscalInfoBox([
+    'title' => '¿Qué es el Modelo 130?',
+    'items' => [
+        ['label' => '¿Qué es?',   'text' => 'El pago fraccionado trimestral del IRPF para autónomos en estimación directa. Se presenta 4 veces al año.'],
+        ['label' => 'Cálculo',    'text' => '20% × (ingresos acumulados desde enero − gastos acumulados) − retenciones ya soportadas en facturas − lo pagado en trimestres anteriores del mismo año.'],
+        ['label' => 'Plazo',      'text' => 'Del 1 al 20 del mes siguiente al trimestre: abril (T1), julio (T2), octubre (T3), enero del año siguiente (T4).'],
+        ['label' => 'Ejemplo',    'text' => 'En T2 acumulas 20.000 € de ingresos y 8.000 € de gastos. Base = 12.000 €. Cuota bruta = 2.400 €. Si te retuvieron 600 € y pagaste 900 € en T1, ingresas 900 € más.'],
+    ]
+]) ?>
 
 <!-- KPIs -->
 <div class="row g-3 mb-4">

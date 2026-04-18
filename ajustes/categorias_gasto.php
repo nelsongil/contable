@@ -214,7 +214,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="col-md-3">
               <label class="form-label">
                 Código AEAT
-                <span class="text-muted" style="font-size:.73rem">(G01–G39)</span>
+                <span class="text-muted" style="font-size:.73rem">(G01–G39)</span><?= helpTip('Código G del Libro Registro de facturas recibidas según Orden HAC/773/2019. Necesario si exportas los libros para Hacienda desde LIBROS → Exportación AEAT.') ?>
               </label>
               <input type="text" name="codigo_aeat" class="form-control text-uppercase"
                      maxlength="3" placeholder="G16"
@@ -229,7 +229,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="col-md-6">
               <label class="form-label">
                 % IVA deducible
-                <span class="text-muted" style="font-size:.75rem">(0–100)</span>
+                <span class="text-muted" style="font-size:.75rem">(0–100)</span><?= helpTip('Parte del IVA soportado que puedes deducirte. Ejemplo: un vehículo de uso mixto puede deducirse el 50% del IVA según criterio de Hacienda. 100% = deducción completa.') ?>
               </label>
               <div class="input-group">
                 <input type="number" name="pct_iva_deducible" class="form-control"
@@ -243,7 +243,7 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="col-md-6">
               <label class="form-label">
                 % IRPF deducible
-                <span class="text-muted" style="font-size:.75rem">(0–100)</span>
+                <span class="text-muted" style="font-size:.75rem">(0–100)</span><?= helpTip('Porcentaje del gasto que se incluye como deducción en el Modelo 130. Un gasto no relacionado con la actividad = 0%. Un gasto íntegramente profesional = 100%.') ?>
               </label>
               <div class="input-group">
                 <input type="number" name="pct_irpf_deducible" class="form-control"

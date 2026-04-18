@@ -329,6 +329,11 @@ a, button, .btn, select, label[for], [role="button"], .fact-row,
 }
 #sidebarBackdrop.show { display: block; }
 
+/* ── Help tips ── */
+.help-tip { color: var(--text-3); font-size: .8em; margin-left: .2em; cursor: help; vertical-align: middle; }
+.help-tip:hover { color: var(--verde-a); }
+.tooltip { --bs-tooltip-max-width: 300px; }
+
 /* ══ RESPONSIVE ══ */
 @media (max-width: 767.98px) {
   #sidebarToggle { display: flex; }
@@ -556,6 +561,9 @@ if ($update && $update['version'] !== $dismissed):
   </a>
   <a href="/ajustes/backup.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/backup') ? 'active' : '' ?>">
     <i class="bi bi-database-check"></i> Copias de seguridad
+  </a>
+  <a href="/ajustes/ayuda.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/ayuda') ? 'active' : '' ?>">
+    <i class="bi bi-question-circle"></i> Ayuda
   </a>
   <a href="/ajustes/updater.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/updater') ? 'active' : '' ?>">
     <i class="bi bi-arrow-repeat"></i> Actualizaciones

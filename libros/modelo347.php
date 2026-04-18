@@ -1,6 +1,7 @@
 <?php
 $pageTitle = 'Modelo 347';
 require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/fiscal_info.php';
 
 define('UMBRAL_347', 3005.06);
 
@@ -56,11 +57,15 @@ $proveedores347 = $stProveedores->fetchAll();
   </div>
 </div>
 
-<div class="alert alert-info py-2 mb-4" style="font-size:.85rem; max-width:900px">
-  <i class="bi bi-info-circle me-2"></i>
-  Se muestran clientes y proveedores con operaciones anuales <strong>iguales o superiores a <?= money(UMBRAL_347) ?></strong> (IVA incluido).
-  El Modelo 347 se presenta en febrero del año siguiente y recoge el año natural completo.
-</div>
+<?= fiscalInfoBox([
+    'title' => '¿Qué es el Modelo 347?',
+    'items' => [
+        ['label' => '¿Qué es?',   'text' => 'Declaración anual de operaciones con terceros. Debes declarar a cada cliente o proveedor con quien hayas facturado más de 3.005,06 € en el año (IVA incluido).'],
+        ['label' => 'Plazo',      'text' => 'Todo el mes de febrero del año siguiente al que se declara (es anual, no trimestral).'],
+        ['label' => 'Para qué',   'text' => 'Hacienda cruza tu declaración con la del otro tercero para detectar discrepancias. Si tus datos no coinciden con los de tu cliente o proveedor, puede haber requerimientos.'],
+        ['label' => 'Ejemplo',    'text' => 'Si facturaste 12.000 € a un cliente, lo incluyes en tu 347. Ese cliente debería incluirte a ti en el suyo. Ambas cifras deben coincidir.'],
+    ]
+]) ?>
 
 <!-- Resumen KPI -->
 <div class="row g-3 mb-4">

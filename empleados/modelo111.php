@@ -20,6 +20,7 @@ for ($t = 1; $t <= 4; $t++) {
 
 $pageTitle = 'Modelo 111';
 require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/fiscal_info.php';
 ?>
 
 <div class="topbar">
@@ -35,6 +36,16 @@ require_once __DIR__ . '/../includes/header.php';
     </a>
   </div>
 </div>
+
+<?= fiscalInfoBox([
+    'title' => '¿Qué es el Modelo 111?',
+    'items' => [
+        ['label' => '¿Qué es?',   'text' => 'Declaración trimestral de las retenciones del IRPF practicadas sobre los sueldos de tus empleados. Lo presentas tú como empleador.'],
+        ['label' => 'Plazo',      'text' => 'Del 1 al 20 del mes siguiente al trimestre: abril (T1), julio (T2), octubre (T3), enero del año siguiente (T4).'],
+        ['label' => 'Contenido',  'text' => 'Número de perceptores (empleados), total de salarios brutos pagados en el trimestre, y total de retenciones de IRPF practicadas.'],
+        ['label' => 'Ejemplo',    'text' => 'Un empleado cobra 7.500 € brutos en el trimestre con retención del 15%: retienes 1.125 €. Le pagas 6.375 € e ingresas 1.125 € a Hacienda con este modelo.'],
+    ]
+]) ?>
 
 <!-- Resumen KPI -->
 <div class="row g-3 mb-4">

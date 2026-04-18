@@ -187,7 +187,7 @@ $ultimas = $ul->fetchAll();
     <div class="kpi-card" style="--kpi-accent:#059669">
       <div class="kpi-ic g"><i class="bi bi-graph-up-arrow"></i></div>
       <div class="flex-grow-1 min-w-0">
-        <div class="kpi-lbl">Ingresos <?= $anio ?></div>
+        <div class="kpi-lbl">Ingresos <?= $anio ?><?= helpTip('Base imponible total de facturas emitidas este año (sin IVA). No incluye las canceladas.') ?></div>
         <div class="kpi-val"><?= money($ventas['base']) ?></div>
         <div class="kpi-sub ok"><i class="bi bi-receipt"></i><?= $ventas['cnt'] ?> facturas emitidas</div>
       </div>
@@ -197,7 +197,7 @@ $ultimas = $ul->fetchAll();
     <div class="kpi-card" style="--kpi-accent:#dc2626">
       <div class="kpi-ic r"><i class="bi bi-graph-down-arrow"></i></div>
       <div class="flex-grow-1 min-w-0">
-        <div class="kpi-lbl">Gastos <?= $anio ?></div>
+        <div class="kpi-lbl">Gastos <?= $anio ?><?= helpTip('Base imponible total de facturas recibidas (compras y gastos) registradas este año.') ?></div>
         <div class="kpi-val"><?= money($compras['base']) ?></div>
         <div class="kpi-sub bad"><i class="bi bi-bag"></i><?= $compras['cnt'] ?> facturas recibidas</div>
       </div>
@@ -208,7 +208,7 @@ $ultimas = $ul->fetchAll();
     <div class="kpi-card" style="--kpi-accent:<?= $ivaAccent ?>">
       <div class="kpi-ic <?= $ivaAnual >= 0 ? 'or' : 'b' ?>"><i class="bi bi-bank"></i></div>
       <div class="flex-grow-1 min-w-0">
-        <div class="kpi-lbl">IVA neto acumulado</div>
+        <div class="kpi-lbl">IVA neto acumulado<?= helpTip('IVA cobrado en ventas menos IVA deducible en compras. Positivo = debes ingresar a Hacienda; Negativo = saldo a compensar.') ?></div>
         <div class="kpi-val"><?= money($ivaAnual) ?></div>
         <div class="kpi-sub <?= $ivaAnual >= 0 ? 'bad' : 'ok' ?>">
           <i class="bi bi-<?= $ivaAnual >= 0 ? 'arrow-up-circle' : 'arrow-down-circle' ?>"></i>
@@ -221,7 +221,7 @@ $ultimas = $ul->fetchAll();
     <div class="kpi-card" style="--kpi-accent:<?= $rendimiento >= 0 ? '#b45309' : '#dc2626' ?>">
       <div class="kpi-ic au"><i class="bi bi-wallet2"></i></div>
       <div class="flex-grow-1 min-w-0">
-        <div class="kpi-lbl">Rendimiento neto</div>
+        <div class="kpi-lbl">Rendimiento neto<?= helpTip('Ingresos menos gastos. Es la base sobre la que se calcula el IRPF del Modelo 130 (estimación directa simplificada).') ?></div>
         <div class="kpi-val <?= $rendimiento < 0 ? 'neg' : '' ?>"><?= money($rendimiento) ?></div>
         <div class="kpi-sub warn"><i class="bi bi-percent"></i>IRPF est. <?= money($irpfEstimado) ?></div>
         <?php if ($ventas['base'] > 0): ?>
