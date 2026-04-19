@@ -2,9 +2,10 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [1.7.x] - 2026-04-19
+## [1.8.x] - 2026-04-19
 
 ### Added
+- **Modelo 303 — Autoliquidación trimestral IVA** (`libros/modelo303.php`): casillas oficiales agrupadas en bloques A/B/C, cálculo automático desde `resumenTrimestral()`, campos editables para bienes de inversión (cas. 30/31) y compensaciones anteriores (cas. 48), recálculo en tiempo real vía JS, gestión del resultado negativo con distinción T1-T3 (A COMPENSAR) vs T4 (A DEVOLVER / A COMPENSAR), botón "Guardar compensación" que pre-rellena la cas. 48 del trimestre siguiente, exportación CSV con BOM+semicolón compatible AEAT, 5 helpTips en casillas clave.
 - **Sistema de ayuda en 3 niveles**: tooltips contextuales (`helpTip()`) en los 4 KPIs del dashboard, 5 filas clave del resumen trimestral y 3 campos del formulario de categorías de gasto.
 - **Cajas de información fiscal** (`fiscalInfoBox()`): bloques colapsables con explicación, cálculo y ejemplo numérico real en los modelos 130, 115, 347, 111 y el resumen trimestral.
 - **Manual de ayuda** (`ajustes/ayuda.php`): guía completa para autónomos en 4 secciones con accordion, orientada a tareas y con ejemplos con números reales. Incluye sección sobre exportación de libros AEAT.

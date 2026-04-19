@@ -377,8 +377,19 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
 
 <!-- ═══ ACCESOS RÁPIDOS MODELOS ═══ -->
 <div class="row g-3 mb-2">
-  <div class="col-sm-4">
-    <a href="/libros/modelo130.php?anio=<?= $anio ?>" class="card text-decoration-none" style="transition:box-shadow .2s">
+  <div class="col-6 col-md-3">
+    <a href="/libros/modelo303.php?anio=<?= $anio ?>" class="card text-decoration-none">
+      <div class="card-body d-flex align-items-center gap-3 py-3">
+        <i class="bi bi-file-earmark-text" style="font-size:1.6rem;color:var(--verde-a)"></i>
+        <div>
+          <div class="fw-semibold">Modelo 303</div>
+          <div class="text-muted" style="font-size:.78rem">Autoliquidación IVA</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-3">
+    <a href="/libros/modelo130.php?anio=<?= $anio ?>" class="card text-decoration-none">
       <div class="card-body d-flex align-items-center gap-3 py-3">
         <i class="bi bi-file-earmark-text" style="font-size:1.6rem;color:var(--verde-a)"></i>
         <div>
@@ -388,7 +399,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
       </div>
     </a>
   </div>
-  <div class="col-sm-4">
+  <div class="col-6 col-md-3">
     <a href="/libros/modelo115.php?anio=<?= $anio ?>" class="card text-decoration-none">
       <div class="card-body d-flex align-items-center gap-3 py-3">
         <i class="bi bi-building" style="font-size:1.6rem;color:var(--verde-a)"></i>
@@ -399,7 +410,7 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
       </div>
     </a>
   </div>
-  <div class="col-sm-4">
+  <div class="col-6 col-md-3">
     <a href="/libros/modelo347.php?anio=<?= $anio ?>" class="card text-decoration-none">
       <div class="card-body d-flex align-items-center gap-3 py-3">
         <i class="bi bi-people" style="font-size:1.6rem;color:var(--verde-a)"></i>
