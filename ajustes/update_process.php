@@ -140,7 +140,7 @@ switch ($step) {
                 throw new Exception("Carpeta de origen no encontrada en el paquete (buscado: '$source').");
             }
 
-            // Exclusiones para no sobreescribir datos de usuario
+            // Exclusiones para no sobreescribir datos de usuario ni archivos del servidor
             $exclude = [
                 'config/database.php',
                 'config/.installed',
@@ -150,6 +150,7 @@ switch ($step) {
                 'assets/logo.png',
                 '.git',
                 '.github',
+                '.well-known',   // archivos de validación SSL del hosting (Let's Encrypt)
                 'SECURITY.md',
                 'CONVENTIONS.md'
             ];
