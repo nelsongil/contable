@@ -180,12 +180,27 @@ $currentVer = defined('APP_VERSION') ? APP_VERSION : '1.0';
                 <div id="u_filesContent"></div>
               </div>
             </div>
-            <div id="u_migrationLog" class="d-none text-start mb-4" style="font-size:.78rem;">
-              <div class="border rounded p-3" style="background:var(--surface-2);max-height:160px;overflow-y:auto;">
-                <div class="fw-bold mb-2" style="color:var(--text-2)"><i class="bi bi-database-gear me-1"></i>Migraciones de base de datos</div>
-                <div id="u_migApplied" class="d-none mb-1"></div>
-                <div id="u_migSkipped" class="d-none mb-1"></div>
-                <div id="u_migErrors" class="d-none"></div>
+            <div id="u_migrationLog" class="d-none text-start mb-4" style="font-size:.82rem;">
+              <!-- Caso normal: migraciones aplicadas, sin errores -->
+              <div id="u_migSimple" class="d-none">
+                <i class="bi bi-database-check me-1 text-success"></i>
+                <span id="u_migSimpleText"></span>
+              </div>
+              <!-- Caso error o detalles técnicos -->
+              <div id="u_migDetail" class="d-none">
+                <div class="border rounded p-3" style="background:var(--surface-2);max-height:200px;overflow-y:auto;">
+                  <div class="fw-bold mb-2" style="color:var(--text-2)"><i class="bi bi-database-gear me-1"></i>Migraciones de base de datos</div>
+                  <div id="u_migApplied" class="d-none mb-1"></div>
+                  <div id="u_migSkipped" class="d-none mb-1"></div>
+                  <div id="u_migErrors" class="d-none"></div>
+                </div>
+              </div>
+              <!-- Enlace "Ver detalles técnicos" (solo visible si no hay errores) -->
+              <div id="u_migDetailToggle" class="d-none mt-1">
+                <a href="#" class="text-muted small" style="font-size:.72rem;"
+                   onclick="event.preventDefault(); document.getElementById('u_migDetail').classList.toggle('d-none'); this.textContent = this.textContent.includes('Ver') ? 'Ocultar detalles técnicos' : 'Ver detalles técnicos';">
+                  Ver detalles técnicos
+                </a>
               </div>
             </div>
             <button class="btn btn-success w-100 py-3 fw-bold rounded-pill shadow-sm" onclick="location.href='/index.php'">
@@ -265,32 +280,57 @@ async function runUpdateSteps() {
                     document.getElementById('u_filesContent').innerHTML = html;
                 }
 
-                // Migraciones
+                // Migraciones — solo mostrar si hay algo relevante para el usuario
                 if (data.migrations) {
-                    const m = data.migrations;
-                    const log = document.getElementById('u_migrationLog');
-                    log.classList.remove('d-none');
+                    const m        = data.migrations;
+                    const hasErrors  = (m.errors  || []).length > 0;
+                    const hasApplied = (m.applied || []).length > 0;
 
-                    if (m.applied?.length) {
-                        const el = document.getElementById('u_migApplied');
-                        el.classList.remove('d-none');
-                        el.innerHTML = '<span class="text-success fw-bold">Aplicadas (' + m.applied.length + '):</span> '
-                            + m.applied.map(f => '<code>' + f + '</code>').join(', ');
-                    }
-                    if (m.skipped?.length) {
-                        const el = document.getElementById('u_migSkipped');
-                        el.classList.remove('d-none');
-                        el.innerHTML = '<span class="text-muted fw-bold">Omitidas (' + m.skipped.length + '):</span> '
-                            + m.skipped.map(f => '<code>' + f + '</code>').join(', ');
-                    }
-                    if (m.errors?.length) {
-                        const el = document.getElementById('u_migErrors');
-                        el.classList.remove('d-none');
-                        el.innerHTML = '<span class="text-danger fw-bold">Errores (' + m.errors.length + '):</span> '
-                            + m.errors.map(e => '<code>' + e + '</code>').join('<br>');
-                    }
-                    if (!m.applied?.length && !m.skipped?.length && !m.errors?.length) {
-                        document.getElementById('u_migrationLog').classList.add('d-none');
+                    // Caso 0: solo omitidas → silencio total (actualización limpia)
+                    if (!hasApplied && !hasErrors) {
+                        // no mostrar nada
+                    } else {
+                        document.getElementById('u_migrationLog').classList.remove('d-none');
+
+                        if (hasErrors) {
+                            // Caso error: bloque técnico completo visible
+                            document.getElementById('u_migDetail').classList.remove('d-none');
+                            if (hasApplied) {
+                                const ea = document.getElementById('u_migApplied');
+                                ea.classList.remove('d-none');
+                                ea.innerHTML = '<span class="text-success fw-bold">Aplicadas (' + m.applied.length + '):</span> '
+                                    + m.applied.map(f => '<code>' + f + '</code>').join(', ');
+                            }
+                            if ((m.skipped || []).length) {
+                                const es = document.getElementById('u_migSkipped');
+                                es.classList.remove('d-none');
+                                es.innerHTML = '<span class="text-muted fw-bold">Omitidas (' + m.skipped.length + '):</span> '
+                                    + m.skipped.map(f => '<code>' + f + '</code>').join(', ');
+                            }
+                            const ee = document.getElementById('u_migErrors');
+                            ee.classList.remove('d-none');
+                            ee.innerHTML = '<span class="text-danger fw-bold">Errores (' + m.errors.length + '):</span><br>'
+                                + m.errors.map(e => '<code>' + e + '</code>').join('<br>');
+                        } else {
+                            // Caso normal: mensaje amigable + detalles técnicos colapsados
+                            const txt = m.applied.length === 1
+                                ? 'Se aplicó 1 mejora a la base de datos.'
+                                : 'Se aplicaron ' + m.applied.length + ' mejoras a la base de datos.';
+                            document.getElementById('u_migSimpleText').textContent = txt;
+                            document.getElementById('u_migSimple').classList.remove('d-none');
+                            // Rellenar detalle técnico (oculto hasta que el usuario haga clic)
+                            const ea = document.getElementById('u_migApplied');
+                            ea.classList.remove('d-none');
+                            ea.innerHTML = '<span class="text-success fw-bold">Aplicadas (' + m.applied.length + '):</span> '
+                                + m.applied.map(f => '<code>' + f + '</code>').join(', ');
+                            if ((m.skipped || []).length) {
+                                const es = document.getElementById('u_migSkipped');
+                                es.classList.remove('d-none');
+                                es.innerHTML = '<span class="text-muted fw-bold">Omitidas (' + m.skipped.length + '):</span> '
+                                    + m.skipped.map(f => '<code>' + f + '</code>').join(', ');
+                            }
+                            document.getElementById('u_migDetailToggle').classList.remove('d-none');
+                        }
                     }
                 }
             }
