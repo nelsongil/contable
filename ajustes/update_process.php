@@ -277,13 +277,20 @@ switch ($step) {
 
             // Limpiar temporales
             rrmdir_recursive($tmpDir);
-            
+
+            // Invalidar OPcache para que PHP ejecute los archivos recién copiados
+            $opcacheReset = false;
+            if (function_exists('opcache_reset')) {
+                $opcacheReset = opcache_reset();
+            }
+
             // Log final
-            $logMsg = "[" . date('Y-m-d H:i:s') . "] Actualizado a $newVerTag\n";
+            $logMsg = "[" . date('Y-m-d H:i:s') . "] Actualizado a $newVerTag"
+                    . ($opcacheReset ? " (OPcache invalidado)" : "") . "\n";
             @file_put_contents($backupDir . '/update_log.txt', $logMsg, FILE_APPEND);
 
             unset($_SESSION['update_available']);
-            echo json_encode(['ok' => true, 'version' => $newVerTag]);
+            echo json_encode(['ok' => true, 'version' => $newVerTag, 'opcache_reset' => $opcacheReset]);
         } catch (Exception $e) {
             echo json_encode(['ok' => false, 'error' => 'Error finalizando: ' . $e->getMessage()]);
         }
