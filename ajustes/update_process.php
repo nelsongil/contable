@@ -116,19 +116,29 @@ switch ($step) {
     case 'install':
         try {
             $extractPath = $tmpDir . '/extracted';
-            $items = scandir($extractPath);
-            $subFolder = '';
-            foreach ($items as $item) {
-                if ($item !== '.' && $item !== '..' && is_dir($extractPath . '/' . $item)) {
-                    $subFolder = $item;
-                    break;
+
+            // Detectar estructura del ZIP:
+            // - GitHub zipball → carpeta raíz única (nelsongil-contable-{sha}/)
+            // - ZIP personalizado → archivos directamente en la raíz (index.php visible)
+            if (file_exists($extractPath . '/index.php')) {
+                $source    = $extractPath;
+                $subFolder = '';
+            } else {
+                $subFolder = '';
+                foreach (array_diff(scandir($extractPath), ['.', '..']) as $item) {
+                    if (is_dir($extractPath . '/' . $item)) {
+                        $subFolder = $item;
+                        break;
+                    }
                 }
+                $source = $extractPath . ($subFolder ? '/' . $subFolder : '');
             }
-            
-            $source = $extractPath . ($subFolder ? '/' . $subFolder : '');
+
             $target = __DIR__ . '/..';
 
-            if (!is_dir($source)) throw new Exception("Carpeta de origen no encontrada en el paquete.");
+            if (!is_dir($source) || !file_exists($source . '/index.php')) {
+                throw new Exception("Carpeta de origen no encontrada en el paquete (buscado: '$source').");
+            }
 
             // Exclusiones para no sobreescribir datos de usuario
             $exclude = [
@@ -143,8 +153,14 @@ switch ($step) {
                 'SECURITY.md',
                 'CONVENTIONS.md'
             ];
-            
-            rcopy_recursive($source, $target, $exclude);
+
+            $filesCopied = 0;
+            $filesFailed = [];
+            rcopy_recursive($source, $target, $exclude, '', $filesCopied, $filesFailed);
+
+            if ($filesFailed) {
+                error_log('[update] Fallos al copiar archivos: ' . implode(', ', array_slice($filesFailed, 0, 20)));
+            }
 
             // ── Migraciones SQL con control de ejecución única ────────────────
             // Cada migración se registra en migration_log al ejecutarse.
@@ -217,6 +233,12 @@ switch ($step) {
 
             echo json_encode([
                 'ok'         => true,
+                'files'      => [
+                    'copied'     => $filesCopied,
+                    'failed'     => count($filesFailed),
+                    'failed_list'=> array_slice($filesFailed, 0, 10), // primeros 10 para diagnóstico
+                    'subfolder'  => $subFolder ?: '(raíz)',
+                ],
                 'migrations' => [
                     'applied' => $migrationsApplied,
                     'skipped' => $migrationsSkipped,
@@ -272,14 +294,14 @@ switch ($step) {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function rcopy_recursive($src, $dst, $exclude = [], $rel = '') {
-    if (!is_dir($dst)) @mkdir($dst, 0755, true);
+function rcopy_recursive($src, $dst, $exclude = [], $rel = '', &$copied = 0, &$failed = []) {
+    if (!is_dir($dst)) mkdir($dst, 0755, true);
     $dir = opendir($src);
     while (false !== ($file = readdir($dir))) {
         if ($file === '.' || $file === '..') continue;
-        
+
         $currentRel = $rel ? "$rel/$file" : $file;
-        
+
         $skip = false;
         foreach ($exclude as $p) {
             if ($currentRel === $p || (is_dir($src.'/'.$file) && strpos($currentRel, $p.'/') === 0)) {
@@ -289,9 +311,13 @@ function rcopy_recursive($src, $dst, $exclude = [], $rel = '') {
         if ($skip) continue;
 
         if (is_dir($src . '/' . $file)) {
-            rcopy_recursive($src . '/' . $file, $dst . '/' . $file, $exclude, $currentRel);
+            rcopy_recursive($src . '/' . $file, $dst . '/' . $file, $exclude, $currentRel, $copied, $failed);
         } else {
-            @copy($src . '/' . $file, $dst . '/' . $file);
+            if (copy($src . '/' . $file, $dst . '/' . $file)) {
+                $copied++;
+            } else {
+                $failed[] = $currentRel;
+            }
         }
     }
     closedir($dir);
