@@ -125,6 +125,9 @@ $totIvaC4       = array_sum(array_column($ivaTrim, 'c_iva_4'));
     <a href="exportar.php?anio=<?= $anio ?>" class="btn btn-sm btn-outline-success">
       <i class="bi bi-file-earmark-excel me-1"></i>Exportar CSV
     </a>
+    <a href="/libros/liquidacion_trimestral.php?anio=<?= $anio ?>&trim=<?= (int)ceil(date('n')/3) ?>" class="btn btn-sm btn-outline-primary">
+      <i class="bi bi-file-earmark-check me-1"></i>Liquidación completa
+    </a>
   </div>
 </div>
 

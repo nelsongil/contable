@@ -523,6 +523,9 @@ if ($update && $update['version'] !== $dismissed):
   <a href="/libros/resumen.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/resumen') ? 'active' : '' ?>">
     <i class="bi bi-bar-chart"></i> Resumen trimestral
   </a>
+  <a href="/libros/liquidacion_trimestral.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/liquidacion_trimestral') ? 'active' : '' ?>">
+    <i class="bi bi-file-earmark-check"></i> Liquidación trimestral
+  </a>
   <a href="/libros/modelo303.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/libros/modelo303') ? 'active' : '' ?>">
     <i class="bi bi-file-earmark-text"></i> Modelo 303
   </a>

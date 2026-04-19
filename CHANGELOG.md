@@ -2,6 +2,13 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.9.x] - 2026-04-19
+
+### Added
+- **Liquidación trimestral imprimible** (`libros/liquidacion_trimestral.php`): documento A4 de una página que consolida Modelo 303 + Modelo 130 + Modelo 111 (condicional al módulo de empleados), con cabecera de empresa, total a ingresar a Hacienda, línea de firma y pie legal. CSS `@media print` oculta sidebar, topbar y controles; accesible desde el menú FISCAL y desde el botón "Liquidación completa" en el resumen trimestral.
+
+---
+
 ## [1.8.x] - 2026-04-19
 
 ### Added
