@@ -6,9 +6,10 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 
 // Seguridad: Solo admin logado
-if (empty($_SESSION['usuario_id'])) {
+require_once __DIR__ . '/../includes/auth.php';
+if (!isAdmin()) {
     header('Content-Type: application/json');
-    echo json_encode(['ok' => false, 'error' => 'Sesión expirada o no autorizada.']);
+    echo json_encode(['ok' => false, 'error' => 'No autorizado.']);
     exit;
 }
 
@@ -230,6 +231,43 @@ switch ($step) {
 
             if ($migrationErrors) {
                 error_log('[update] Errores en migraciones: ' . implode(' | ', $migrationErrors));
+            }
+
+            // ── Post-migración PHP: completar schema de usuarios ──────────────
+            // Ejecutar SIEMPRE (idempotente): asigna email al admin existente,
+            // añade UNIQUE key y elimina columnas obsoletas (username, password).
+            $postMigLog = [];
+            try {
+                $colCheck = $db->query("SHOW COLUMNS FROM usuarios LIKE 'email'")->fetch();
+                if ($colCheck) {
+                    // Asignar email desde constante EMPRESA_EMAIL si la fila no tiene email
+                    if (defined('EMPRESA_EMAIL') && EMPRESA_EMAIL) {
+                        $stEmail = $db->prepare(
+                            "UPDATE usuarios SET email = ?
+                             WHERE (email IS NULL OR email = '') AND rol = 'admin'
+                             LIMIT 1"
+                        );
+                        $stEmail->execute([EMPRESA_EMAIL]);
+                        if ($stEmail->rowCount() > 0) $postMigLog[] = 'email admin asignado';
+                    }
+                    // Añadir índice UNIQUE en email (idempotente)
+                    try {
+                        $db->exec("ALTER TABLE usuarios ADD UNIQUE KEY uk_usuarios_email (email)");
+                        $postMigLog[] = 'UNIQUE key email creada';
+                    } catch (PDOException) { /* ya existe */ }
+                    // Eliminar columnas obsoletas
+                    $dropped = [];
+                    foreach (['username', 'password'] as $col) {
+                        try {
+                            $db->exec("ALTER TABLE usuarios DROP COLUMN IF EXISTS `{$col}`");
+                            $dropped[] = $col;
+                        } catch (PDOException) {}
+                    }
+                    if ($dropped) $postMigLog[] = 'columnas eliminadas: ' . implode(', ', $dropped);
+                }
+            } catch (PDOException $pe) {
+                $postMigLog[] = 'error post-mig: ' . $pe->getMessage();
+                error_log('[update] Post-migración usuarios: ' . $pe->getMessage());
             }
 
             echo json_encode([

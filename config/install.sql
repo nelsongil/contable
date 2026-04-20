@@ -119,6 +119,20 @@ INSERT IGNORE INTO configuracion (clave, valor) VALUES
     ('factura_prefijo',       'F'),
     ('factura_ceros',         '4');
 
+-- ─── Usuarios y roles ───────────────────────────────────────
+CREATE TABLE IF NOT EXISTS usuarios (
+    id                INT AUTO_INCREMENT PRIMARY KEY,
+    nombre            VARCHAR(150) NOT NULL,
+    email             VARCHAR(150) NOT NULL UNIQUE,
+    password_hash     VARCHAR(255) NOT NULL,
+    rol               ENUM('admin','colaborador') NOT NULL DEFAULT 'admin',
+    estado            ENUM('activo','inactivo')   NOT NULL DEFAULT 'activo',
+    ultimo_acceso     DATETIME,
+    intentos_fallidos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    bloqueado_hasta   DATETIME,
+    creado_en         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ─── Registro de migraciones aplicadas ──────────────────────
 CREATE TABLE IF NOT EXISTS migration_log (
     id            INT AUTO_INCREMENT PRIMARY KEY,

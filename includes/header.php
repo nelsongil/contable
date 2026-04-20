@@ -471,9 +471,11 @@ if ($update && $update['version'] !== $dismissed):
     <div class="cif">CIF: <?= e(getConfig('empresa_cif', EMPRESA_CIF)) ?></div>
   </a>
 
+<?php if (isAdmin()): ?>
   <a href="/" class="nav-link <?= $_SERVER['PHP_SELF'] === '/index.php' ? 'active' : '' ?>">
     <i class="bi bi-speedometer2"></i> Dashboard
   </a>
+<?php endif; ?>
 
   <div class="nav-section">Facturación</div>
   <a href="/facturas/nueva.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/facturas/nueva') ? 'active' : '' ?>">
@@ -501,6 +503,7 @@ if ($update && $update['version'] !== $dismissed):
     <i class="bi bi-truck"></i> Proveedores
   </a>
 
+<?php if (isAdmin()): ?>
   <?php if (getConfig('modulo_empleados', false)): ?>
   <div class="nav-section">Laboral</div>
   <a href="/empleados/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/') && !str_contains($_SERVER['REQUEST_URI'],'retenciones') && !str_contains($_SERVER['REQUEST_URI'],'modelo111') ? 'active' : '' ?>">
@@ -545,6 +548,9 @@ if ($update && $update['version'] !== $dismissed):
   </a>
 
   <div class="nav-section">Configuración</div>
+  <a href="/ajustes/usuarios.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/usuarios') ? 'active' : '' ?>">
+    <i class="bi bi-people-fill"></i> Usuarios
+  </a>
   <a href="/ajustes/empresa.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>">
     <i class="bi bi-building"></i> Empresa y nº
   </a>
@@ -572,6 +578,7 @@ if ($update && $update['version'] !== $dismissed):
     <span class="badge rounded-pill bg-gold text-dark ms-auto" style="font-size: .65rem;">1</span>
     <?php endif; ?>
   </a>
+<?php endif; /* isAdmin */ ?>
 
   <div class="sidebar-bottom">
     <div class="d-flex align-items-center justify-content-between mb-3">
@@ -580,9 +587,9 @@ if ($update && $update['version'] !== $dismissed):
         <span class="anio-badge"><?= date('Y') ?></span>
       </div>
       <div class="d-flex align-items-center gap-1">
-        <small style="color:var(--sb-muted);font-size:.7rem;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <?= e($_SESSION['usuario_user'] ?? '') ?>
-        </small>
+        <a href="/ajustes/perfil.php" style="color:var(--sb-muted);font-size:.7rem;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none;" title="Mi perfil">
+          <i class="bi bi-person-circle me-1"></i><?= e($_SESSION['usuario_nombre'] ?? '') ?>
+        </a>
         <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Cambiar tema">
           <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
         </button>

@@ -6,10 +6,11 @@
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 
-// Seguridad: solo usuario autenticado
-if (empty($_SESSION['usuario_id'])) {
+// Seguridad: solo admin
+require_once __DIR__ . '/../includes/auth.php';
+if (!isAdmin()) {
     header('Content-Type: application/json');
-    echo json_encode(['ok' => false, 'error' => 'Sesión no autorizada.']);
+    echo json_encode(['ok' => false, 'error' => 'No autorizado.']);
     exit;
 }
 

@@ -2,6 +2,28 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.x] - 2026-04-19
+
+### Added
+- **Módulo usuarios y roles**: tabla `usuarios` con schema completo (email, password_hash, rol ENUM admin/colaborador, estado, intentos_fallidos, bloqueado_hasta). Login por email en lugar de username.
+- **Brute-force protection**: bloqueo automático de cuenta tras 5 intentos fallidos durante 15 minutos; indicador de intentos restantes en el mensaje de error.
+- **`requireAdmin()` / `requireColaborador()` / `isAdmin()`** en `auth.php`: control de acceso por rol aplicado en todas las páginas admin (libros, fiscal, empleados, ajustes).
+- **Sidebar condicional**: colaborador ve solo Facturación + Agenda; secciones LABORAL, LIBROS, FISCAL y CONFIGURACIÓN visibles solo para admin.
+- **`ajustes/usuarios.php`**: CRUD completo de usuarios. Incluye protección para no eliminar el último admin activo ni desactivar la propia cuenta.
+- **`ajustes/perfil.php`**: cambio de nombre, email y contraseña propios accesible para todos los roles.
+- **`errors/403.php`**: página de error 403 amigable con botón de vuelta.
+- **Migración idempotente** `config/migrations/2026-04-19_usuarios_roles.sql`: añade columnas sin romper instancias existentes.
+- **Post-migración PHP** en `update_process.php`: asigna email desde `EMPRESA_EMAIL`, añade clave UNIQUE en email, elimina columnas obsoletas (username, password).
+- Enlace "Usuarios" en sección CONFIGURACIÓN del menú lateral (solo admin).
+- Enlace "Mi perfil" en la zona inferior del sidebar (todos los roles).
+
+### Changed
+- `install.php`: paso 3 ahora pide email del admin en lugar de username; crea tabla con nuevo schema.
+- `config/install.sql`: tabla `usuarios` añadida al schema para fresh installs.
+- `login.php`: campo login cambiado de username a email; protección brute-force activa.
+
+---
+
 ## [1.9.x] - 2026-04-19
 
 ### Added

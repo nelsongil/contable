@@ -78,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Datos de empresa + admin
         $d = [
             'empresa_nombre'   => trim($_POST['empresa_nombre']   ?? ''),
+            'admin_email'      => trim(strtolower($_POST['admin_email'] ?? '')),
             'empresa_sociedad' => trim($_POST['empresa_sociedad'] ?? ''),
             'empresa_cif'      => trim($_POST['empresa_cif']      ?? ''),
             'empresa_dir1'     => trim($_POST['empresa_dir1']     ?? ''),
@@ -87,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'empresa_web'      => trim($_POST['empresa_web']      ?? ''),
             'empresa_banco'    => trim($_POST['empresa_banco']    ?? ''),
             'empresa_iban'     => trim($_POST['empresa_iban']     ?? ''),
-            'admin_user'       => trim($_POST['admin_user']       ?? ''),
+            'admin_nombre'     => trim($_POST['admin_nombre']     ?? ''),
             'admin_pass'       => $_POST['admin_pass'] ?? '',
             'admin_pass2'      => $_POST['admin_pass2'] ?? '',
         ];
@@ -124,11 +125,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Usuario administrador: solo alfanumérico, guiones y puntos, 3-80 chars
-        if (!$d['admin_user']) {
-            $errors[] = 'El usuario administrador es obligatorio.';
-        } elseif (!preg_match('/^[a-zA-Z0-9_.\-]{3,80}$/', $d['admin_user'])) {
-            $errors[] = 'El usuario solo puede contener letras, números, guiones bajos, guiones y puntos (3–80 caracteres).';
+        // Email del admin
+        if (!$d['admin_email'] || !filter_var($d['admin_email'], FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'Introduce un email válido para el administrador.';
+        } elseif (strlen($d['admin_email']) > 150) {
+            $errors[] = 'El email no puede superar 150 caracteres.';
+        }
+
+        // Nombre del admin
+        if (!$d['admin_nombre']) {
+            $errors[] = 'El nombre del administrador es obligatorio.';
         }
 
         // Contraseña: mínimo 8 chars, al menos una letra y un número
@@ -173,20 +179,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 try { $pdo->exec($stmt); } catch (PDOException $e) { /* Ignorar si ya existe */ }
             }
 
-            // 3. Crear tabla de usuarios (para login)
+            // 3. Crear tabla de usuarios (nuevo schema con roles)
             $pdo->exec("CREATE TABLE IF NOT EXISTS usuarios (
-                id       INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(80) NOT NULL UNIQUE,
-                password VARCHAR(255) NOT NULL,
-                nombre   VARCHAR(150),
-                ultimo_acceso DATETIME,
-                creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                id                INT AUTO_INCREMENT PRIMARY KEY,
+                nombre            VARCHAR(150) NOT NULL,
+                email             VARCHAR(150) NOT NULL UNIQUE,
+                password_hash     VARCHAR(255) NOT NULL,
+                rol               ENUM('admin','colaborador') NOT NULL DEFAULT 'admin',
+                estado            ENUM('activo','inactivo')   NOT NULL DEFAULT 'activo',
+                ultimo_acceso     DATETIME,
+                intentos_fallidos TINYINT UNSIGNED NOT NULL DEFAULT 0,
+                bloqueado_hasta   DATETIME,
+                creado_en         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
             // 4. Insertar admin
             $hash = password_hash($d['admin_pass'], PASSWORD_BCRYPT);
-            $st = $pdo->prepare("INSERT IGNORE INTO usuarios (username, password, nombre) VALUES (?,?,?)");
-            $st->execute([$d['admin_user'], $hash, $d['empresa_nombre']]);
+            $adminNombre = $d['admin_nombre'] ?: $d['empresa_nombre'];
+            $st = $pdo->prepare(
+                "INSERT IGNORE INTO usuarios (nombre, email, password_hash, rol, estado)
+                 VALUES (?, ?, ?, 'admin', 'activo')"
+            );
+            $st->execute([$adminNombre, $d['admin_email'], $hash]);
 
             // 5. Generar SECRET_KEY aleatoria
             $secret = bin2hex(random_bytes(32));

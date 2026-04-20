@@ -7,8 +7,10 @@
 
 if (session_status() === PHP_SESSION_NONE) session_start();
 
-if (empty($_SESSION['usuario_id'])) {
-    http_response_code(401);
+require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/auth.php';
+if (!isAdmin()) {
+    http_response_code(403);
     echo json_encode(['error' => 'No autorizado']);
     exit;
 }

@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth.php';
+requireAdmin();
 
 $anio = (int)get('anio', date('Y'));
 $trim = (int)get('trim', (int)ceil(date('n') / 3));

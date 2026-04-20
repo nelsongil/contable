@@ -12,7 +12,8 @@
 if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 
-if (empty($_SESSION['usuario_id'])) {
+require_once __DIR__ . '/../includes/auth.php';
+if (!isAdmin()) {
     http_response_code(403);
     exit('Acceso no autorizado.');
 }
