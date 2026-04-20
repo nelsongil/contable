@@ -504,8 +504,11 @@ if ($update && $update['version'] !== $dismissed):
   </a>
 
 <?php if (isAdmin()): ?>
-  <?php if (getConfig('modulo_empleados', false)): ?>
   <div class="nav-section">Laboral</div>
+  <a href="/ajustes/empleados.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empleados') ? 'active' : '' ?>">
+    <i class="bi bi-person-gear"></i> Módulo empleados
+  </a>
+  <?php if (getConfig('modulo_empleados', false)): ?>
   <a href="/empleados/" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/empleados/') && !str_contains($_SERVER['REQUEST_URI'],'retenciones') && !str_contains($_SERVER['REQUEST_URI'],'modelo111') ? 'active' : '' ?>">
     <i class="bi bi-person-badge"></i> Empleados
   </a>
@@ -559,9 +562,6 @@ if ($update && $update['version'] !== $dismissed):
   </a>
   <a href="/ajustes/tema.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/tema') ? 'active' : '' ?>">
     <i class="bi bi-brush"></i> Tema interfaz
-  </a>
-  <a href="/ajustes/empleados.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empleados') ? 'active' : '' ?>">
-    <i class="bi bi-person-gear"></i> Módulo empleados
   </a>
   <a href="/ajustes/categorias_gasto.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>">
     <i class="bi bi-tags"></i> Categorías de gasto
