@@ -79,10 +79,123 @@ function trimestre(string $fecha): int {
     return (int)ceil($m / 3);
 }
 
+// ─── Trimestre efectivo (manual o natural) ───────────────────
+/**
+ * Devuelve el trimestre efectivo de una factura.
+ * Si tiene trimestre_manual asignado, lo usa; si no, calcula desde la fecha.
+ */
+function trimestreEfectivo(?int $trimestreManual, string $fecha): int {
+    return $trimestreManual ?? trimestre($fecha);
+}
+
+// ─── Estado de trimestre fiscal ──────────────────────────────
+/**
+ * Devuelve el estado de un trimestre fiscal ('abierto' o 'cerrado').
+ * Si no existe registro, se asume 'abierto'.
+ */
+function estadoTrimestre(int $anio, int $trimestre): string {
+    try {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT estado FROM trimestres_fiscales WHERE anio=? AND trimestre=?");
+        $stmt->execute([$anio, $trimestre]);
+        $row = $stmt->fetch();
+        return $row ? $row['estado'] : 'abierto';
+    } catch (Exception) {
+        return 'abierto'; // Fallback seguro si la tabla no existe aún
+    }
+}
+
+/**
+ * Comprueba si un trimestre está cerrado (presentado a AEAT).
+ */
+function trimestreCerrado(int $anio, int $trimestre): bool {
+    return estadoTrimestre($anio, $trimestre) === 'cerrado';
+}
+
+/**
+ * Lista todos los trimestres fiscales con su estado.
+ */
+function listarTrimestresFiscales(?int $anio = null, ?string $estado = null): array {
+    try {
+        $db = getDB();
+        $where = ["1=1"];
+        $params = [];
+        if ($anio !== null) { $where[] = "anio=?"; $params[] = $anio; }
+        if ($estado !== null) { $where[] = "estado=?"; $params[] = $estado; }
+        $sql = "SELECT * FROM trimestres_fiscales WHERE " . implode(' AND ', $where) . " ORDER BY anio DESC, trimestre DESC";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    } catch (Exception) {
+        return []; // Fallback si la tabla no existe
+    }
+}
+
+/**
+ * Cierra un trimestre fiscal (lo marca como presentado).
+ */
+function cerrarTrimestre(int $anio, int $trimestre, ?string $notas = null): bool {
+    try {
+        $db = getDB();
+        $usuarioId = $_SESSION['usuario_id'] ?? null;
+        $db->prepare(
+            "UPDATE trimestres_fiscales
+             SET estado='cerrado', fecha_cierre=CURDATE(), usuario_cierre=?, notas_cierre=?
+             WHERE anio=? AND trimestre=?"
+        )->execute([$usuarioId, $notas, $anio, $trimestre]);
+
+        // Auditoría
+        $db->prepare(
+            "INSERT INTO auditoria_trimestres (anio, trimestre, accion, usuario_id, notas)
+             VALUES (?, ?, 'cerrar', ?, ?)"
+        )->execute([$anio, $trimestre, $usuarioId, $notas]);
+
+        return true;
+    } catch (Exception) {
+        return false;
+    }
+}
+
+/**
+ * Abre un trimestre fiscal (lo marca como no presentado).
+ */
+function abrirTrimestre(int $anio, int $trimestre, ?string $notas = null): bool {
+    try {
+        $db = getDB();
+        $usuarioId = $_SESSION['usuario_id'] ?? null;
+        $db->prepare(
+            "UPDATE trimestres_fiscales
+             SET estado='abierto', fecha_cierre=NULL, usuario_cierre=NULL, notas_cierre=NULL
+             WHERE anio=? AND trimestre=?"
+        )->execute([$anio, $trimestre]);
+
+        // Auditoría
+        $db->prepare(
+            "INSERT INTO auditoria_trimestres (anio, trimestre, accion, usuario_id, notas)
+             VALUES (?, ?, 'abrir', ?, ?)"
+        )->execute([$anio, $trimestre, $usuarioId, $notas]);
+
+        return true;
+    } catch (Exception) {
+        return false;
+    }
+}
+
+/**
+ * Valida si se puede modificar/crear una factura en un trimestre.
+ * Devuelve ['ok' => bool, 'error' => ?string]
+ */
+function validarTrimestreEditable(int $anio, int $trimestre): array {
+    if (trimestreCerrado($anio, $trimestre)) {
+        return ['ok' => false, 'error' => "El trimestre $trimestre/$anio está cerrado (presentado a la AEAT). No se pueden modificar facturas."];
+    }
+    return ['ok' => true];
+}
+
 // ─── Siguiente número de factura ─────────────────────────────
 // Usa LAST_INSERT_ID(expr) para un incremento atómico sin race condition.
 // Compatible con instalaciones existentes: inicializa numeracion.ultimo
-// a partir de factura_proximo (configuracion) en el primer uso del año.
+// a partir del máximo real en facturas_emitidas para evitar desincronías.
 function siguienteNumeroFactura(): string {
     $pref    = getConfig('factura_prefijo', 'F');
     $usaAnio = getConfig('factura_usa_anio', true);
@@ -90,18 +203,31 @@ function siguienteNumeroFactura(): string {
     $anio    = (int)date('Y');
     $db      = getDB();
 
-    // Primer uso del año: inicializar desde factura_proximo si existe
-    $proximo = (int)getConfig('factura_proximo', 1);
-    $inicio  = max(0, $proximo - 1);
+    // Calcular el máximo número real emitido este año desde facturas_emitidas
+    // Esto evita desincronías si numeracion.ultimo queda desfasado
+    $anioStr = $usaAnio ? (string)$anio : '';
+    $patron  = $pref . $anioStr . '%';
+    $stmt = $db->prepare(
+        "SELECT COALESCE(MAX(CAST(SUBSTRING(numero, ?) AS UNSIGNED)), 0)
+         FROM facturas_emitidas
+         WHERE numero LIKE ?"
+    );
+    $offset = strlen($pref . $anioStr) + 1; // posición donde empieza el número
+    $stmt->execute([$offset, $patron]);
+    $maxReal = (int)$stmt->fetchColumn();
+
+    // Sincronizar numeracion.ultimo si está por debajo del máximo real
     $db->prepare("INSERT IGNORE INTO numeracion (anio, ultimo) VALUES (?, ?)")
-       ->execute([$anio, $inicio]);
+       ->execute([$anio, $maxReal]);
+    $db->prepare(
+        "UPDATE numeracion SET ultimo = ? WHERE anio = ? AND ultimo < ?"
+    )->execute([$maxReal, $anio, $maxReal]);
 
     // Incremento atómico — LAST_INSERT_ID(expr) es scoped a la conexión
     $db->prepare("UPDATE numeracion SET ultimo = LAST_INSERT_ID(ultimo + 1) WHERE anio = ?")
        ->execute([$anio]);
     $ultimo = (int)$db->query("SELECT LAST_INSERT_ID()")->fetchColumn();
 
-    $anioStr   = $usaAnio ? (string)$anio : '';
     $numeroStr = str_pad($ultimo, $digitos, '0', STR_PAD_LEFT);
     return $pref . $anioStr . $numeroStr;
 }
@@ -189,12 +315,16 @@ function getProveedor(int $id): array|false {
 }
 
 // ─── Facturas ────────────────────────────────────────────────
+/**
+ * Obtiene facturas emitidas filtradas por año y trimestre.
+ * Usa el trimestre efectivo (COALESCE(trimestre_manual, trimestre)).
+ */
 function getFacturasEmitidas(int $anio = 0, int $trim = 0): array {
     $db   = getDB();
     $where = ["1=1"];
     $params = [];
     if ($anio) { $where[] = "YEAR(fecha)=?"; $params[] = $anio; }
-    if ($trim) { $where[] = "trimestre=?";   $params[] = $trim; }
+    if ($trim) { $where[] = "COALESCE(trimestre_manual, trimestre)=?"; $params[] = $trim; }
     $sql = "SELECT fe.*, c.nombre AS cliente_nombre_actual
             FROM facturas_emitidas fe
             LEFT JOIN clientes c ON c.id = fe.cliente_id
@@ -219,12 +349,16 @@ function getLineasFactura(int $facturaId): array {
     $st->execute([$facturaId]);
     return $st->fetchAll();
 }
+/**
+ * Obtiene facturas recibidas filtradas por año, trimestre y categoría.
+ * Usa el trimestre efectivo (COALESCE(trimestre_manual, trimestre)).
+ */
 function getFacturasRecibidas(int $anio = 0, int $trim = 0, string $categoria = ''): array {
     $db     = getDB();
     $where  = ["1=1"];
     $params = [];
     if ($anio)      { $where[] = "YEAR(fr.fecha)=?";  $params[] = $anio; }
-    if ($trim)      { $where[] = "fr.trimestre=?";    $params[] = $trim; }
+    if ($trim)      { $where[] = "COALESCE(fr.trimestre_manual, fr.trimestre)=?"; $params[] = $trim; }
     if ($categoria) { $where[] = "fr.categoria=?";    $params[] = $categoria; }
     $sql = "SELECT fr.*, p.nombre AS proveedor_nombre_actual
             FROM facturas_recibidas fr
@@ -241,6 +375,7 @@ function resumenTrimestral(int $anio, int $trim): array {
     $db = getDB();
 
     // ── Ventas: totales + desglose por tipo IVA ──────────────────────────────
+    // Usa trimestre efectivo: COALESCE(trimestre_manual, trimestre)
     $ve = $db->prepare(
         "SELECT
             COALESCE(SUM(base_imponible),0)                                              base,
@@ -253,13 +388,14 @@ function resumenTrimestral(int $anio, int $trim): array {
             COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN base_imponible ELSE 0 END),0)  base_4,
             COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN cuota_iva      ELSE 0 END),0)  iva_4
          FROM facturas_emitidas
-         WHERE YEAR(fecha)=? AND trimestre=? AND estado!='cancelada'"
+         WHERE YEAR(fecha)=? AND COALESCE(trimestre_manual, trimestre)=? AND estado!='cancelada'"
     );
     $ve->execute([$anio, $trim]);
     $ventas = $ve->fetch();
 
     // ── Compras: totales bruto/deducible + desglose por tipo IVA ─────────────
     // IVA deducible efectivo = cuota_iva * (pct_iva_deducible / 100)
+    // Usa trimestre efectivo: COALESCE(trimestre_manual, trimestre)
     $co = $db->prepare(
         "SELECT
             COALESCE(SUM(base_imponible),0)                                                           base,
@@ -272,7 +408,7 @@ function resumenTrimestral(int $anio, int $trim): array {
             COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN base_imponible                ELSE 0 END),0) base_4,
             COALESCE(SUM(CASE WHEN porcentaje_iva=4  THEN cuota_iva*pct_iva_deducible/100 ELSE 0 END),0) iva_4
          FROM facturas_recibidas
-         WHERE YEAR(fecha)=? AND trimestre=?"
+         WHERE YEAR(fecha)=? AND COALESCE(trimestre_manual, trimestre)=?"
     );
     $co->execute([$anio, $trim]);
     $compras = $co->fetch();

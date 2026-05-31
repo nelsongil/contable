@@ -26,6 +26,18 @@ Configurados vía `.htaccess`:
 - `X-Frame-Options: SAMEORIGIN`
 - `X-XSS-Protection: 1; mode=block`
 - `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy`: Restringe recursos a dominios confiables (CDNs oficiales)
+- `Permissions-Policy`: Deshabilita características innecesarias (geolocation, camera, etc.)
+- `Cache-Control`: Previene caching de páginas PHP sensibles
+
+## Recursos externos (CDNs)
+Todos los CDNs usan `crossorigin="anonymous"` para carga segura:
+- Bootstrap 5.3.3 (CSS + JS)
+- Bootstrap Icons 1.11.3
+- Chart.js 4.4.1
+- Tom Select 2.3.1
+- PDF.js 4.8.69 (solo extracción local)
+- Google Fonts (Inter)
 
 ## Checklist antes de cada deploy
 - [ ] `config/database.php` **NO** está incluido en el repositorio.
@@ -34,6 +46,9 @@ Configurados vía `.htaccess`:
 - [ ] El instalador está bloqueado (existe `config/.installed`).
 - [ ] HTTPS está configurado y activo.
 - [ ] Permisos: `755` para directorios, `644` para archivos, `600` para configuraciones.
+- [ ] No hay archivos `debug_*.php` o logs expuestos en producción.
+- [ ] Los CDNs tienen atributo `crossorigin="anonymous"`.
+- [ ] El CSP del `.htaccess` incluye todos los dominios necesarios.
 
 ## Lo que NUNCA debes hacer
 - **No subir** configuraciones sensibles a Git.

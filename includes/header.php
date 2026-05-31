@@ -35,9 +35,9 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 <link rel="apple-touch-icon" href="/assets/logoApp.png">
 <link rel="icon" type="image/x-icon" href="/assets/logoApp.ico">
 <link rel="icon" type="image/png" href="/assets/logoApp.png">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" crossorigin="anonymous">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" crossorigin="anonymous"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..800;1,14..32,400&display=swap" rel="stylesheet">
 <style>
@@ -565,6 +565,9 @@ if ($update && $update['version'] !== $dismissed):
   </a>
   <a href="/ajustes/categorias_gasto.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>">
     <i class="bi bi-tags"></i> Categorías de gasto
+  </a>
+  <a href="/ajustes/trimestres.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/trimestres') ? 'active' : '' ?>">
+    <i class="bi bi-calendar-check"></i> Trimestres fiscales
   </a>
   <a href="/ajustes/backup.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/backup') ? 'active' : '' ?>">
     <i class="bi bi-database-check"></i> Copias de seguridad

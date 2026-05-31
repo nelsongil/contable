@@ -3,12 +3,12 @@ if (session_status() === PHP_SESSION_NONE) session_start();
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/auth.php';
 
-$id      = (int)get('id');
-$factura = $id ? getFacturaEmitida($id) : null;
-$lineas  = $id ? getLineasFactura($id) : [];
-$clientes = getClientes();
+$id        = (int)get('id');
+$factura   = $id ? getFacturaEmitida($id) : null;
+$lineas    = $id ? getLineasFactura($id) : [];
+$clientes  = getClientes();
 
-$isEdit  = (bool)$id;
+$isEdit    = (bool)$id;
 
 // ── Bloquear edición de facturas pagadas o canceladas ─────
 if ($isEdit && in_array($factura['estado'] ?? '', ['pagada', 'cancelada'])) {
@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pct_irpf    = (float)post('pct_irpf', 0);
     $notas       = post('notas');
     $estado      = post('estado', 'emitida');
+    $trimManual  = post('trimestre_manual') === '' ? null : (int)post('trimestre_manual');
 
     // Líneas
     $cantidades   = $_POST['cantidad']    ?? [];
@@ -50,10 +51,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cuota_irpf = round($base * $pct_irpf / 100, 2);
     $total      = $base + $cuota_iva;
     $liquido    = $total - $cuota_irpf;
-    $trim       = trimestre($fecha);
+    $trimNatural = trimestre($fecha);
+    $trim        = $trimManual ?? $trimNatural;
+
+    // Validar trimestre cerrado
+    $anioFactura = (int)date('Y', strtotime($fecha));
+    $valTrimestre = validarTrimestreEditable($anioFactura, $trim);
+    if (!$valTrimestre['ok']) {
+        $error = $valTrimestre['error'];
+    }
 
     if (!$lineasValidas) {
         $error = 'Añade al menos una línea de factura.';
+    } elseif (isset($valTrimestre) && !$valTrimestre['ok']) {
+        // Error ya establecido por trimestre cerrado
     } else {
         try {
             $db->beginTransaction();
@@ -67,16 +78,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'total'          => $factura['total'],
                     'estado'         => $factura['estado'],
                     'fecha'          => $factura['fecha'],
+                    'trimestre_manual' => $factura['trimestre_manual'] ?? null,
                 ];
                 $db->prepare("UPDATE facturas_emitidas SET fecha=?,fecha_vencimiento=?,cliente_id=?,
                               cliente_nombre=?,cliente_nif=?,base_imponible=?,porcentaje_iva=?,cuota_iva=?,
-                              porcentaje_irpf=?,cuota_irpf=?,total=?,liquido=?,notas=?,estado=?,trimestre=?
+                              porcentaje_irpf=?,cuota_irpf=?,total=?,liquido=?,notas=?,estado=?,
+                              trimestre=?,trimestre_manual=?
                               WHERE id=?")
                    ->execute([$fecha, $vencimiento ?: null, $clienteId ?: null,
                               $cliente['nombre'] ?? post('cliente_nombre'),
                               $cliente['nif'] ?? '',
                               $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf,
-                              $total, $liquido, $notas, $estado, $trim, $id]);
+                              $total, $liquido, $notas, $estado, $trimNatural, $trimManual, $id]);
                 $db->prepare("DELETE FROM facturas_emitidas_lineas WHERE factura_id=?")->execute([$id]);
                 $fid = $id;
             } else {
@@ -84,13 +97,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $db->prepare("INSERT INTO facturas_emitidas
                               (numero,fecha,fecha_vencimiento,cliente_id,cliente_nombre,cliente_nif,
                                base_imponible,porcentaje_iva,cuota_iva,porcentaje_irpf,cuota_irpf,
-                               total,liquido,notas,estado,trimestre)
-                              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                               total,liquido,notas,estado,trimestre,trimestre_manual)
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                    ->execute([$numero, $fecha, $vencimiento ?: null, $clienteId ?: null,
                               $cliente['nombre'] ?? post('cliente_nombre'),
                               $cliente['nif'] ?? '',
                               $base, $pct_iva, $cuota_iva, $pct_irpf, $cuota_irpf,
-                              $total, $liquido, $notas, $estado, $trim]);
+                              $total, $liquido, $notas, $estado, $trimNatural, $trimManual]);
                 $fid = (int)$db->lastInsertId();
             }
             foreach ($lineasValidas as [$ord, $cant, $desc, $precio, $ltotal]) {
@@ -135,8 +148,15 @@ if (!$isEdit) {
     $pref    = getConfig('factura_prefijo', 'F');
     $usaAnio = getConfig('factura_usa_anio', true);
     $digitos = (int)getConfig('factura_digitos', 5);
-    $proximo = (int)getConfig('factura_proximo', 1);
-    $previewNumero = $pref . ($usaAnio ? date('Y') : '') . str_pad($proximo, $digitos, '0', STR_PAD_LEFT);
+    $anioStr = $usaAnio ? date('Y') : '';
+    $patron  = $pref . $anioStr . '%';
+    $stmtPrev = getDB()->prepare(
+        "SELECT COALESCE(MAX(CAST(SUBSTRING(numero, ?) AS UNSIGNED)), 0) + 1
+         FROM facturas_emitidas WHERE numero LIKE ?"
+    );
+    $stmtPrev->execute([strlen($pref . $anioStr) + 1, $patron]);
+    $proximo = (int)$stmtPrev->fetchColumn();
+    $previewNumero = $pref . $anioStr . str_pad($proximo, $digitos, '0', STR_PAD_LEFT);
 }
 
 $pageTitle = $isEdit ? 'Editar factura ' . ($factura['numero'] ?? '') : 'Nueva factura';
@@ -229,6 +249,31 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
               <input type="date" name="fecha_vencimiento" id="fecha_vencimiento" class="form-control" value="<?= e($defaultVenc) ?>" placeholder="Vencimiento">
               <label for="fecha_vencimiento">Vencimiento</label>
             </div>
+          </div>
+          <!-- Trimestre manual -->
+          <div class="col-12">
+            <label class="form-label">
+              <i class="bi bi-calendar3 me-1"></i>Trimestre
+              <i class="bi bi-info-circle-fill ms-1" style="font-size:.75rem;color:var(--verde-a)"
+                 data-bs-toggle="tooltip" data-bs-placement="right"
+                 title="El trimestre natural se calcula desde la fecha. Usa este selector para asignar manualmente un trimestre diferente si la factura pertenece a otro periodo."></i>
+            </label>
+            <div class="d-flex align-items-center gap-2">
+              <select name="trimestre_manual" id="trimestreManual" class="form-select">
+                <option value="">Automático (según fecha)</option>
+                <?php
+                $trimActual = $isEdit ? ($factura['trimestre_manual'] ?? $factura['trimestre']) : trimestre($defaultFecha);
+                for ($t = 1; $t <= 4; $t++):
+                  $label = "T$t - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
+                ?>
+                <option value="<?= $t ?>" <?= $trimActual == $t ? 'selected' : '' ?>><?= $label ?></option>
+                <?php endfor; ?>
+              </select>
+              <span id="trimestreInfo" class="badge" style="font-size:.75rem;white-space:nowrap"></span>
+            </div>
+            <small id="trimestreNaturalText" class="text-muted" style="font-size:.75rem">
+              Trimestre natural: <strong>T<?= trimestre($defaultFecha) ?></strong>
+            </small>
           </div>
           <div class="col-12">
             <label class="form-label">IVA %</label>
@@ -445,7 +490,48 @@ document.addEventListener('DOMContentLoaded', function() {
         d.setDate(d.getDate() + 7);
         const iso = d.toISOString().slice(0, 10);
         document.getElementById('fecha_vencimiento').value = iso;
+        updateTrimestreInfo();
     });
+
+    // ── Info de trimestre (natural vs manual) ─────────────
+    function getTrimestreFromFecha(fechaStr) {
+        if (!fechaStr) return null;
+        const d = new Date(fechaStr + 'T00:00:00');
+        const mes = d.getMonth() + 1;
+        return Math.ceil(mes / 3);
+    }
+    function updateTrimestreInfo() {
+        const fecha = document.getElementById('fecha').value;
+        const trimManual = parseInt(document.getElementById('trimestreManual').value) || null;
+        const trimNatural = getTrimestreFromFecha(fecha);
+        const trimEfetivo = trimManual ?? trimNatural;
+        const infoEl = document.getElementById('trimestreInfo');
+        const naturalText = document.getElementById('trimestreNaturalText');
+
+        if (naturalText) {
+            naturalText.innerHTML = 'Trimestre natural: <strong>T' + trimNatural + '</strong>';
+        }
+
+        if (!trimManual) {
+            if (infoEl) {
+                infoEl.className = 'badge bg-success-subtle text-success-emphasis';
+                infoEl.textContent = 'Automático';
+            }
+        } else if (trimManual !== trimNatural) {
+            if (infoEl) {
+                infoEl.className = 'badge bg-warning-subtle text-warning-emphasis';
+                infoEl.textContent = 'Manual (T' + trimManual + ')';
+            }
+        } else {
+            if (infoEl) {
+                infoEl.className = 'badge bg-success-subtle text-success-emphasis';
+                infoEl.textContent = 'Coincide';
+            }
+        }
+    }
+
+    document.getElementById('trimestreManual')?.addEventListener('change', updateTrimestreInfo);
+    updateTrimestreInfo();
 
     // ── Añadir línea ──────────────────────────────────────
     document.getElementById('btnAddLinea').addEventListener('click', function() {

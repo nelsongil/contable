@@ -94,19 +94,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $total           = $base + $cuota_iva;
     $descripcion     = post('descripcion');
     $notas           = post('notas');
-    $trim            = trimestre($fecha);
+    $trimManual      = post('trimestre_manual') === '' ? null : (int)post('trimestre_manual');
+    $trimNatural     = trimestre($fecha);
+    $trim            = $trimManual ?? $trimNatural;
     $pct_iva_ded     = min(100, max(0, (float)str_replace(',', '.', post('pct_iva_deducible',  '100'))));
     $pct_irpf_ded    = min(100, max(0, (float)str_replace(',', '.', post('pct_irpf_deducible', '100'))));
 
+    // Validar trimestre cerrado
+    $anioFactura = (int)date('Y', strtotime($fecha));
+    $valTrimestre = validarTrimestreEditable($anioFactura, $trim);
+    if (!$valTrimestre['ok']) {
+        $error = $valTrimestre['error'];
+    }
+
     if (!$numero) { $error = 'El número de factura es obligatorio.'; }
     elseif (!$base) { $error = 'La base imponible no puede ser cero.'; }
-    else {
+    elseif (isset($valTrimestre) && !$valTrimestre['ok']) {
+        // Error ya establecido por trimestre cerrado
+    } else {
         $db = getDB();
         $data = [$fecha, $provId ?: null,
                  $proveedor['nombre'] ?? post('proveedor_nombre'),
                  $proveedor['nif'] ?? '',
                  $base, $pct_iva, $cuota_iva, $pct_iva_ded, $pct_irpf, $cuota_irpf, $pct_irpf_ded,
-                 $total, $descripcion, $notas, $trim, $numero, $categoria, $cat_gasto_id];
+                 $total, $descripcion, $notas, $trimNatural, $trimManual, $numero, $categoria, $cat_gasto_id];
         try {
             $db->beginTransaction();
             if ($isEdit) {
@@ -117,13 +128,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'fecha'             => $fr['fecha'],
                     'categoria'         => $fr['categoria'],
                     'pct_iva_deducible' => $fr['pct_iva_deducible'] ?? 100,
+                    'trimestre_manual'  => $fr['trimestre_manual'] ?? null,
                 ];
                 $db->prepare(
                     "UPDATE facturas_recibidas
                      SET fecha=?,proveedor_id=?,proveedor_nombre=?,proveedor_nif=?,
                          base_imponible=?,porcentaje_iva=?,cuota_iva=?,pct_iva_deducible=?,
                          porcentaje_irpf=?,cuota_irpf=?,pct_irpf_deducible=?,total=?,
-                         descripcion=?,notas=?,trimestre=?,numero=?,categoria=?,categoria_gasto_id=?
+                         descripcion=?,notas=?,trimestre=?,trimestre_manual=?,numero=?,categoria=?,categoria_gasto_id=?
                      WHERE id=?"
                 )->execute([...$data, $id]);
                 $db->commit();
@@ -139,8 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      (fecha,proveedor_id,proveedor_nombre,proveedor_nif,
                       base_imponible,porcentaje_iva,cuota_iva,pct_iva_deducible,
                       porcentaje_irpf,cuota_irpf,pct_irpf_deducible,total,
-                      descripcion,notas,trimestre,numero,categoria,categoria_gasto_id)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+                      descripcion,notas,trimestre,trimestre_manual,numero,categoria,categoria_gasto_id)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
                 )->execute($data);
                 $fid = (int)$db->lastInsertId();
                 $db->commit();
@@ -312,6 +324,31 @@ require_once __DIR__ . '/../includes/header.php';
             <label for="inputFecha">Fecha *</label>
           </div>
         </div>
+        <!-- Trimestre manual -->
+        <div class="col-md-4">
+          <label class="form-label">
+            <i class="bi bi-calendar3 me-1"></i>Trimestre
+            <i class="bi bi-info-circle-fill ms-1" style="font-size:.75rem;color:var(--verde-a)"
+               data-bs-toggle="tooltip" data-bs-placement="top"
+               title="El trimestre natural se calcula desde la fecha. Usa este selector para asignar manualmente un trimestre diferente."></i>
+          </label>
+          <div class="d-flex align-items-center gap-2">
+            <select name="trimestre_manual" id="trimestreManual" class="form-select">
+              <option value="">Automático (según fecha)</option>
+              <?php
+              $trimActual = $isEdit ? ($fr['trimestre_manual'] ?? $fr['trimestre']) : trimestre($fr['fecha'] ?? date('Y-m-d'));
+              for ($t = 1; $t <= 4; $t++):
+                $label = "T$t - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
+              ?>
+              <option value="<?= $t ?>" <?= $trimActual == $t ? 'selected' : '' ?>><?= $label ?></option>
+              <?php endfor; ?>
+            </select>
+            <span id="trimestreInfo" class="badge" style="font-size:.75rem;white-space:nowrap"></span>
+          </div>
+          <small id="trimestreNaturalText" class="text-muted" style="font-size:.75rem">
+            Trimestre natural: <strong>T<?= trimestre($fr['fecha'] ?? date('Y-m-d')) ?></strong>
+          </small>
+        </div>
         <div class="col-md-4">
           <div class="form-floating">
             <input type="number" name="base_imponible" class="form-control" step="0.01" min="0" required
@@ -394,8 +431,8 @@ const APP_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '
 <script type="module">
 // ── PDF.js — DESACTIVADO (ahora se procesa en servidor) ───────────
 /*
-import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.min.mjs';
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.2.67/build/pdf.worker.min.mjs';
+import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.8.69/build/pdf.worker.min.mjs';
 
 async function extractPdfText(file) {
     const arrayBuffer = await file.arrayBuffer();
@@ -753,6 +790,48 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Inicializar en carga (relevante en modo edición)
     syncDeducibilidadVisibility();
+
+    // ── Info de trimestre (natural vs manual) ─────────────
+    function getTrimestreFromFecha(fechaStr) {
+        if (!fechaStr) return null;
+        const d = new Date(fechaStr + 'T00:00:00');
+        const mes = d.getMonth() + 1;
+        return Math.ceil(mes / 3);
+    }
+    function updateTrimestreInfo() {
+        const fecha = document.getElementById('inputFecha').value;
+        const trimManual = parseInt(document.getElementById('trimestreManual').value) || null;
+        const trimNatural = getTrimestreFromFecha(fecha);
+        const trimEfetivo = trimManual ?? trimNatural;
+        const infoEl = document.getElementById('trimestreInfo');
+        const naturalText = document.getElementById('trimestreNaturalText');
+
+        if (naturalText) {
+            naturalText.innerHTML = 'Trimestre natural: <strong>T' + trimNatural + '</strong>';
+        }
+
+        if (!trimManual) {
+            if (infoEl) {
+                infoEl.className = 'badge bg-success-subtle text-success-emphasis';
+                infoEl.textContent = 'Automático';
+            }
+        } else if (trimManual !== trimNatural) {
+            if (infoEl) {
+                infoEl.className = 'badge bg-warning-subtle text-warning-emphasis';
+                infoEl.textContent = 'Manual (T' + trimManual + ')';
+            }
+        } else {
+            if (infoEl) {
+                infoEl.className = 'badge bg-success-subtle text-success-emphasis';
+                infoEl.textContent = 'Coincide';
+            }
+        }
+    }
+
+    document.getElementById('trimestreManual')?.addEventListener('change', updateTrimestreInfo);
+    document.getElementById('inputFecha')?.addEventListener('change', updateTrimestreInfo);
+    updateTrimestreInfo();
+
     window.togglePdfPanel = function() {
         const panel   = document.getElementById('pdfPanel');
         const chevron = document.getElementById('pdfChevron');

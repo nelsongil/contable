@@ -2,6 +2,33 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-05-31
+
+### Added
+- **Gestión de trimestres fiscales**: tabla `trimestres_fiscales` para registrar el estado (abierto/cerrado) de cada trimestre.
+- **Trimestre manual en facturas**: campo `trimestre_manual` en `facturas_emitidas` y `facturas_recibidas` permite asignar un trimestre diferente al natural de la fecha.
+- **Validación de trimestres cerrados**: las facturas no pueden crearse, editarse o moverse en trimestres cerrados (ya presentados a AEAT).
+- **Página de administración de trimestres** (`ajustes/trimestres.php`): interfaz para cerrar trimestres con confirmación y auditoría.
+- **Auditoría de cambios**: tabla `auditoria_trimestres` registra cuándo y quién cierra/abre trimestres.
+- **Funciones PHP nuevas**: `trimestreEfectivo()`, `estadoTrimestre()`, `trimestreCerrado()`, `listarTrimestresFiscales()`, `cerrarTrimestre()`, `validarTrimestreEditable()`.
+- **Selectores de trimestre manual** en formularios de nueva factura (ventas y compras) con indicador visual.
+
+### Changed
+- `getFacturasEmitidas()`, `getFacturasRecibidas()`, `resumenTrimestral()`: ahora usan `COALESCE(trimestre_manual, trimestre)` para consultas.
+- `.htaccess`: añadidos headers CSP, Permissions-Policy y HSTS (para producción con HTTPS).
+- CDNs actualizados con versiones fijas y `crossorigin="anonymous"`.
+
+### Security
+- Eliminado archivo `debug_login.php` con datos sensibles expuestos.
+- Headers de seguridad reforzados: CSP, HSTS, Permissions-Policy.
+
+### Database
+- Nueva tabla `trimestres_fiscales` (anio, trimestre, estado, fecha_cierre, usuario_cierre, notas_cierre).
+- Nueva tabla `auditoria_trimestres` (anio, trimestre, accion, usuario_id, fecha, notas).
+- Columna `trimestre_manual` añadida a `facturas_emitidas` y `facturas_recibidas`.
+
+---
+
 ## [2.0.x] - 2026-04-19
 
 ### Added

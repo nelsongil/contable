@@ -348,7 +348,11 @@ require_once __DIR__ . '/../includes/header.php';
       <div class="modal-body p-0 bg-secondary bg-opacity-10 overflow-hidden d-flex flex-column">
         <div class="p-2 border-bottom bg-white d-flex justify-content-between align-items-center no-print">
             <span class="small text-muted">Factura: <strong><?= e($factura['numero']) ?></strong></span>
-            <button onclick="document.getElementById('pdfFrame').contentWindow.print()" class="btn btn-sm btn-gold px-3 fw-bold">
+            <button onclick="
+                var f = document.getElementById('pdfFrame');
+                f.contentDocument.title = '<?= e(preg_replace('/^[A-Za-z]+/', '', $factura['numero'])) ?> - <?= e($factura['cliente_nombre']) ?>';
+                f.contentWindow.print();
+            " class="btn btn-sm btn-gold px-3 fw-bold">
                 <i class="bi bi-printer me-1"></i> Imprimir / Guardar
             </button>
         </div>
