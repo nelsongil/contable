@@ -54,9 +54,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $trimNatural = trimestre($fecha);
     $trim        = $trimManual ?? $trimNatural;
 
+    // Calcular año fiscal: si el trimestre manual difiere del natural,
+    // ajustar el año (ej: fecha Ene 2026 (T1) -> mover a T4/2025)
+    $anioFiscal = (int)date('Y', strtotime($fecha));
+    if ($trimManual !== null && $trimManual !== $trimNatural) {
+        if ($trimManual < $trimNatural) {
+            // Mover al trimestre anterior -> año anterior
+            $anioFiscal--;
+        } elseif ($trimManual > $trimNatural) {
+            // Mover al trimestre siguiente -> año siguiente
+            $anioFiscal++;
+        }
+    }
+
     // Validar trimestre cerrado
-    $anioFactura = (int)date('Y', strtotime($fecha));
-    $valTrimestre = validarTrimestreEditable($anioFactura, $trim);
+    $valTrimestre = validarTrimestreEditable($anioFiscal, $trim);
     if (!$valTrimestre['ok']) {
         $error = $valTrimestre['error'];
     }
@@ -159,6 +171,19 @@ if (!$isEdit) {
     $previewNumero = $pref . $anioStr . str_pad($proximo, $digitos, '0', STR_PAD_LEFT);
 }
 
+// ── Obtener trimestres cerrados para validación JS ─────────
+$trimestresCerrados = [];
+try {
+    $db = getDB();
+    $st = $db->query("SELECT anio, trimestre FROM trimestres_fiscales WHERE estado = 'cerrado'");
+    while ($row = $st->fetch()) {
+        $trimestresCerrados[] = $row['anio'] . '-' . $row['trimestre'];
+    }
+} catch (Exception) {
+    // Si la tabla no existe, no hay cerrados
+}
+$trimestresCerradosJson = json_encode($trimestresCerrados);
+
 $pageTitle = $isEdit ? 'Editar factura ' . ($factura['numero'] ?? '') : 'Nueva factura';
 require_once __DIR__ . '/../includes/header.php';
 
@@ -184,6 +209,72 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
 <?php if (!empty($error)): ?>
 <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
+
+<!-- Alerta dinámica de validación de trimestre -->
+<div id="trimestreAlertContainer"></div>
+
+<!-- Modal de confirmación trimestre posterior -->
+<div class="modal fade" id="trimestrePosteriorModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-warning">
+      <div class="modal-header bg-warning-subtle">
+        <h5 class="modal-title">
+          <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+          Trimestre Posterior
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">Vas a asignar esta factura a un trimestre <strong>posterior</strong> al que corresponde por su fecha.</p>
+        <p class="mb-0 text-muted" style="font-size:.9rem">
+          Esto es útil para facturas que quieres adelantar al siguiente periodo fiscal.
+        </p>
+        <div class="alert alert-info mt-3 mb-0" style="font-size:.85rem">
+          <i class="bi bi-info-circle me-1"></i>
+          <strong>Resumen:</strong><br>
+          Fecha: <strong id="modalFecha"></strong> → Trimestre natural: <strong id="modalTrimNatural"></strong><br>
+          Trimestre seleccionado: <strong id="modalTrimSelect"></strong>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning" id="btnConfirmarTrimestrePosterior">
+          <i class="bi bi-check-lg me-1"></i>Confirmar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de trimestre cerrado (bloqueante) -->
+<div class="modal fade" id="trimestreCerradoModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title">
+          <i class="bi bi-lock-fill me-2"></i>
+          Trimestre Cerrado
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          <strong>No se puede guardar la factura en este trimestre.</strong>
+        </p>
+        <p class="mb-2">
+          El trimestre <strong id="modalTrimCerrado"></strong> está <span class="badge bg-danger">cerrado</span> porque ya ha sido presentado a la AEAT.
+        </p>
+        <div class="alert alert-warning mt-3 mb-0" style="font-size:.85rem">
+          <i class="bi bi-shield-exclamation me-1"></i>
+          Para modificar facturas de un trimestre cerrado, primero debes contactar con el administrador.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Entendido</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <form method="post" id="formFactura">
 <?= csrfField() ?>
@@ -274,6 +365,8 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
             <small id="trimestreNaturalText" class="text-muted" style="font-size:.75rem">
               Trimestre natural: <strong>T<?= trimestre($defaultFecha) ?></strong>
             </small>
+            <!-- Contenedor de alertas dinámicas para validación de trimestre -->
+            <div id="trimestreAlertContainer" class="mt-2"></div>
           </div>
           <div class="col-12">
             <label class="form-label">IVA %</label>
@@ -530,6 +623,131 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // ── Validación de trimestre en tiempo real ─────────────
+    const TRIMESTRES_CERRADOS = <?= $trimestresCerradosJson ?>;
+    let confirmarPosteriorCallback = null;
+
+    function getAnioFiscal(fechaStr, trimNatural, trimManual) {
+        if (!fechaStr) return new Date().getFullYear();
+        const anioBase = new Date(fechaStr + 'T00:00:00').getFullYear();
+        if (trimManual && trimManual !== trimNatural) {
+            if (trimManual < trimNatural) return anioBase - 1;
+            if (trimManual > trimNatural) return anioBase + 1;
+        }
+        return anioBase;
+    }
+
+    function validarTrimestre(fechaStr, trimManual, trimNatural) {
+        const alertContainer = document.getElementById('trimestreAlertContainer');
+        const trimEfetivo = trimManual ?? trimNatural;
+        const anioFiscal = getAnioFiscal(fechaStr, trimNatural, trimManual);
+        const key = anioFiscal + '-' + trimEfetivo;
+        const esCerrado = TRIMESTRES_CERRADOS.includes(key);
+
+        // Limpiar alerta previa
+        alertContainer.innerHTML = '';
+
+        if (esCerrado) {
+            // Trimestre cerrado - mostrar alerta roja
+            alertContainer.innerHTML = `
+                <div class="alert alert-danger d-flex align-items-center" role="alert">
+                    <i class="bi bi-lock-fill me-2 fs-5"></i>
+                    <div>
+                        <strong>Trimestre no disponible</strong>
+                        <p class="mb-0" style="font-size:.85rem">
+                            El trimestre T${trimEfetivo}/${anioFiscal} está cerrado (presentado a la AEAT).
+                            Selecciona otro trimestre o contacta con el administrador.
+                        </p>
+                    </div>
+                </div>
+            `;
+            return 'cerrado';
+        }
+
+        if (trimManual && trimManual !== trimNatural) {
+            const direccion = trimManual > trimNatural ? 'posterior' : 'anterior';
+            const anioDestino = getAnioFiscal(fechaStr, trimNatural, trimManual);
+
+            if (direccion === 'posterior') {
+                // Trimestre posterior - mostrar alerta amarilla
+                alertContainer.innerHTML = `
+                    <div class="alert alert-warning d-flex align-items-center" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                        <div>
+                            <strong>Trimestre posterior</strong>
+                            <p class="mb-0" style="font-size:.85rem">
+                                Estás asignando esta factura a un trimestre posterior (T${trimManual}/${anioDestino}).
+                                Esto es útil para adelantar facturas al siguiente periodo.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                return 'posterior';
+            } else {
+                // Trimestre anterior - mostrar alerta informativa
+                alertContainer.innerHTML = `
+                    <div class="alert alert-info d-flex align-items-center" role="alert">
+                        <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                        <div>
+                            <strong>Trimestre anterior</strong>
+                            <p class="mb-0" style="font-size:.85rem">
+                                Estás asignando esta factura a un trimestre anterior (T${trimManual}/${anioDestino}).
+                                Esto es útil para facturas atrasadas.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                return 'anterior';
+            }
+        }
+
+        return 'ok';
+    }
+
+    // Escuchar cambios en el selector de trimestre
+    document.getElementById('trimestreManual')?.addEventListener('change', function() {
+        updateTrimestreInfo();
+        const fecha = document.getElementById('fecha').value;
+        const trimNatural = getTrimestreFromFecha(fecha);
+        const trimManual = parseInt(this.value) || null;
+        const estado = validarTrimestre(fecha, trimManual, trimNatural);
+
+        if (estado === 'cerrado') {
+            // Mostrar modal bloqueante
+            const modal = new bootstrap.Modal(document.getElementById('trimestreCerradoModal'));
+            const fechaObj = new Date(fecha + 'T00:00:00');
+            const anioFiscal = getAnioFiscal(fecha, trimNatural, trimManual);
+            document.getElementById('modalTrimCerrado').textContent = 'T' + trimManual + '/' + anioFiscal;
+            // Resetear selector a automático
+            this.value = '';
+            updateTrimestreInfo();
+            modal.show();
+        } else if (estado === 'posterior') {
+            // Mostrar modal de confirmación
+            const modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
+            document.getElementById('modalFecha').textContent = fecha;
+            document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural;
+            document.getElementById('modalTrimSelect').textContent = 'T' + trimManual;
+
+            // Configurar callback para el botón confirmar
+            confirmarPosteriorCallback = () => {
+                modal.hide();
+                // El formulario se puede enviar
+            };
+
+            document.getElementById('btnConfirmarTrimestrePosterior').onclick = confirmarPosteriorCallback;
+            modal.show();
+        }
+    });
+
+    // También validar al cambiar la fecha
+    document.getElementById('fecha')?.addEventListener('change', function() {
+        const trimManual = parseInt(document.getElementById('trimestreManual').value) || null;
+        const trimNatural = getTrimestreFromFecha(this.value);
+        validarTrimestre(this.value, trimManual, trimNatural);
+        updateTrimestreInfo();
+    });
+
     document.getElementById('trimestreManual')?.addEventListener('change', updateTrimestreInfo);
     updateTrimestreInfo();
 
@@ -624,6 +842,59 @@ document.addEventListener('DOMContentLoaded', function() {
         <button type="button" class="btn btn-gold" id="btnGuardarCliente">
           <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerMC"></span>
           <i class="bi bi-check-lg me-1" id="iconMC"></i>Crear cliente
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Trimestre cerrado (bloqueante) ─────────────────────────── -->
+<div class="modal fade" id="trimestreCerradoModal" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="bi bi-lock-fill me-2"></i>Trimestre cerrado</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          <strong>El trimestre <span id="modalTrimCerrado"></span> está cerrado y presentado a la AEAT.</strong>
+        </p>
+        <p class="text-muted mb-0" style="font-size:.9rem">
+          No se pueden añadir o modificar facturas en este trimestre.
+          Selecciona otro trimestre o contacta con el administrador si necesitas asistencia.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Entendido</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Trimestre posterior (confirmación) ──────────────────────── -->
+<div class="modal fade" id="trimestrePosteriorModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Trimestre posterior</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">
+          Estás asignando una factura con fecha <strong id="modalFecha"></strong>
+          al trimestre <strong id="modalTrimSelect"></strong>,
+          cuando su trimestre natural es <strong id="modalTrimNatural"></strong>.
+        </p>
+        <p class="text-muted mb-0" style="font-size:.9rem">
+          Esto es útil para adelantar facturas al siguiente periodo fiscal.
+          Confirma si deseas continuar.
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-warning" id="btnConfirmarTrimestrePosterior">
+          <i class="bi bi-check-lg me-1"></i>Confirmar
         </button>
       </div>
     </div>
