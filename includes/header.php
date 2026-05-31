@@ -171,14 +171,12 @@ a, button, .btn, select, label[for], [role="button"], .fact-row,
 .sidebar .dropdown-parent { position: relative; cursor: pointer; }
 .sidebar .dropdown-parent.active .bi-chevron-down { transform: rotate(180deg); }
 .sidebar .dropdown-menu-sub {
-  background: rgba(0,0,0,.15) !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 0 0 1rem !important;
+  background: rgba(0,0,0,.12);
+  padding: 0;
+  margin: 0 0 0 1rem;
   display: none;
 }
-.sidebar .dropdown-menu-sub.show { display: block; }
+.sidebar .dropdown-menu-sub.show { display: flex; flex-direction: column; }
 .sidebar .dropdown-menu-sub .dropdown-item {
   color: var(--sb-text);
   font-size: .78rem;
@@ -186,12 +184,13 @@ a, button, .btn, select, label[for], [role="button"], .fact-row,
   display: flex;
   align-items: center;
   gap: .5rem;
-  background: transparent !important;
+  text-decoration: none;
+  transition: background .12s, color .12s;
 }
 .sidebar .dropdown-menu-sub .dropdown-item:hover,
 .sidebar .dropdown-menu-sub .dropdown-item.active {
   color: var(--sb-active);
-  background: rgba(99,102,241,.15) !important;
+  background: rgba(99,102,241,.15);
 }
 .sidebar .dropdown-menu-sub .dropdown-item i {
   font-size: .85rem;
@@ -590,24 +589,24 @@ if ($update && $update['version'] !== $dismissed):
   </a>
 
   <!-- Empresa y Nº (dropdown padre) -->
-  <div class="nav-link dropdown-parent" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+  <div class="nav-link dropdown-parent" style="cursor: pointer;">
     <i class="bi bi-building"></i> Empresa y Nº
     <i class="bi bi-chevron-down ms-auto" style="font-size: .7rem; transition: transform .2s;" id="arrowEmpresa"></i>
   </div>
-  <ul class="dropdown-menu dropdown-menu-sub" style="margin-left: 1rem; background: rgba(0,0,0,.15); border: none; box-shadow: none; padding: 0;">
-    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>" href="/ajustes/empresa.php">
+  <div class="dropdown-menu-sub" style="margin-left: 1rem;">
+    <a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>" href="/ajustes/empresa.php">
       <i class="bi bi-building me-2"></i>Datos
-    </a></li>
-    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/plantilla') ? 'active' : '' ?>" href="/ajustes/plantilla.php">
+    </a>
+    <a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/plantilla') ? 'active' : '' ?>" href="/ajustes/plantilla.php">
       <i class="bi bi-palette me-2"></i>Plantilla factura
-    </a></li>
-    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>" href="/ajustes/categorias_gasto.php">
+    </a>
+    <a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>" href="/ajustes/categorias_gasto.php">
       <i class="bi bi-tags me-2"></i>Categorías de gasto
-    </a></li>
-    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/trimestres') ? 'active' : '' ?>" href="/ajustes/trimestres.php">
+    </a>
+    <a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/trimestres') ? 'active' : '' ?>" href="/ajustes/trimestres.php">
       <i class="bi bi-calendar-check me-2"></i>Trimestres fiscales
-    </a></li>
-  </ul>
+    </a>
+  </div>
 
   <a href="/ajustes/tema.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/tema') ? 'active' : '' ?>">
     <i class="bi bi-brush"></i> Tema interfaz

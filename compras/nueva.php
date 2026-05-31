@@ -362,10 +362,15 @@ require_once __DIR__ . '/../includes/header.php';
               <option value="">Automático (según fecha)</option>
               <?php
               $trimActual = $isEdit ? ($fr['trimestre_manual'] ?? $fr['trimestre']) : trimestre($fr['fecha'] ?? date('Y-m-d'));
+              $anioFiscal = (int)date('Y', strtotime($fr['fecha'] ?? date('Y-m-d')));
               for ($t = 1; $t <= 4; $t++):
                 $label = "T$t - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
+                $anioTrim = $anioFiscal;
+                if ($t < $trimActual) $anioTrim--;
+                elseif ($t > $trimActual) $anioTrim++;
+                $disabled = in_array($anioTrim . '-' . $t, $trimestresCerrados) ? 'disabled' : '';
               ?>
-              <option value="<?= $t ?>" <?= $trimActual == $t ? 'selected' : '' ?>><?= $label ?></option>
+              <option value="<?= $t ?>" <?= $trimActual == $t ? 'selected' : '' ?> <?= $disabled ?>><?= $label ?><?= $disabled ? ' (cerrado)' : '' ?></option>
               <?php endfor; ?>
             </select>
             <span id="trimestreInfo" class="badge" style="font-size:.75rem;white-space:nowrap"></span>
@@ -855,8 +860,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ── Validación de trimestre en tiempo real ─────────────
-    const TRIMESTRES_CERRADOS = <?= $trimestresCerradosJson ?>;
+    // ── Validación simplificada: solo modal posterior ─────────────
+    // Los trimestres cerrados ya están deshabilitados en el select
 
     function getAnioFiscal(fechaStr, trimNatural, trimManual) {
         if (!fechaStr) return new Date().getFullYear();
@@ -868,106 +873,31 @@ document.addEventListener('DOMContentLoaded', function() {
         return anioBase;
     }
 
-    function validarTrimestre(fechaStr, trimManual, trimNatural, mostrarAlertas = true) {
-        const alertContainer = document.getElementById('trimestreAlertContainer');
-        const trimEfetivo = trimManual ?? trimNatural;
-        const anioFiscal = getAnioFiscal(fechaStr, trimNatural, trimManual);
-        const key = anioFiscal + '-' + trimEfetivo;
-        const esCerrado = TRIMESTRES_CERRADOS.includes(key);
-
-        if (mostrarAlertas) {
-            alertContainer.innerHTML = '';
-        }
-
-        if (esCerrado) {
-            if (mostrarAlertas) {
-                alertContainer.innerHTML = `
-                    <div class="alert alert-danger d-flex align-items-center" role="alert">
-                        <i class="bi bi-lock-fill me-2 fs-5"></i>
-                        <div>
-                            <strong>Trimestre no disponible</strong>
-                            <p class="mb-0" style="font-size:.85rem">
-                                El trimestre T${trimEfetivo}/${anioFiscal} está cerrado (presentado a la AEAT).
-                                Selecciona otro trimestre o contacta con el administrador.
-                            </p>
-                        </div>
-                    </div>
-                `;
-            }
-            return 'cerrado';
-        }
-
-        if (trimManual && trimManual !== trimNatural) {
-            const direccion = trimManual > trimNatural ? 'posterior' : 'anterior';
-            const anioDestino = getAnioFiscal(fechaStr, trimNatural, trimManual);
-
-            if (mostrarAlertas) {
-                if (direccion === 'posterior') {
-                    alertContainer.innerHTML = `
-                        <div class="alert alert-warning d-flex align-items-center" role="alert">
-                            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-                            <div>
-                                <strong>Trimestre posterior</strong>
-                                <p class="mb-0" style="font-size:.85rem">
-                                    Estás asignando esta factura a un trimestre posterior (T${trimManual}/${anioDestino}).
-                                    Esto es útil para adelantar facturas al siguiente periodo.
-                                </p>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    alertContainer.innerHTML = `
-                        <div class="alert alert-info d-flex align-items-center" role="alert">
-                            <i class="bi bi-info-circle-fill me-2 fs-5"></i>
-                            <div>
-                                <strong>Trimestre anterior</strong>
-                                <p class="mb-0" style="font-size:.85rem">
-                                    Estás asignando esta factura a un trimestre anterior (T${trimManual}/${anioDestino}).
-                                    Esto es útil para facturas atrasadas.
-                                </p>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-
-            if (direccion === 'posterior') {
-                return 'posterior';
-            } else {
-                return 'anterior';
-            }
-        }
-
-        return 'ok';
-    }
-
     document.getElementById('trimestreManual')?.addEventListener('change', function() {
-        updateTrimestreInfo();
         const fecha = document.getElementById('inputFecha').value;
         const trimNatural = getTrimestreFromFecha(fecha);
         const trimManual = parseInt(this.value) || null;
-        const estado = validarTrimestre(fecha, trimManual, trimNatural, true);
 
-        if (estado === 'cerrado') {
-            const anioFiscal = getAnioFiscal(fecha, trimNatural, trimManual);
-            document.getElementById('modalTrimCerrado').textContent = 'T' + trimManual + '/' + anioFiscal;
-            const modal = new bootstrap.Modal(document.getElementById('trimestreCerradoModal'));
-            this.value = '';
+        if (!trimManual) {
             updateTrimestreInfo();
-            modal.show();
-        } else if (estado === 'posterior') {
+            return;
+        }
+
+        // Solo mostrar modal si es trimestre posterior
+        if (trimManual > trimNatural) {
+            const anioDestino = getAnioFiscal(fecha, trimNatural, trimManual);
             const modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
             document.getElementById('modalFecha').textContent = fecha;
             document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural;
-            document.getElementById('modalTrimSelect').textContent = 'T' + trimManual;
+            document.getElementById('modalTrimSelect').textContent = 'T' + trimManual + '/' + anioDestino;
 
-            // Botón confirmar: acepta el trimestre posterior
+            // Confirmar: mantiene el trimestre seleccionado
             document.getElementById('btnConfirmarTrimestrePosterior').onclick = () => {
                 modal.hide();
-                validarTrimestre(fecha, trimManual, trimNatural, false);
+                updateTrimestreInfo();
             };
 
-            // Botón cancelar: vuelve al automático
+            // Cancelar: vuelve al automático (importante!)
             const btnCancelar = modal._element.querySelector('[data-bs-dismiss="modal"]');
             if (btnCancelar) {
                 btnCancelar.onclick = () => {
@@ -978,18 +908,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             modal.show();
+        } else {
+            updateTrimestreInfo();
         }
     });
 
     document.getElementById('inputFecha')?.addEventListener('change', function() {
-        const trimManual = parseInt(document.getElementById('trimestreManual').value) || null;
-        const trimNatural = getTrimestreFromFecha(this.value);
-        validarTrimestre(this.value, trimManual, trimNatural);
         updateTrimestreInfo();
     });
 
-    document.getElementById('trimestreManual')?.addEventListener('change', updateTrimestreInfo);
-    document.getElementById('inputFecha')?.addEventListener('change', updateTrimestreInfo);
     updateTrimestreInfo();
 
     window.togglePdfPanel = function() {
