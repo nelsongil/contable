@@ -145,6 +145,32 @@ document.querySelectorAll('.sidebar .nav-link').forEach(function(link) {
     });
 });
 
+// Dropdown submenu en sidebar (Empresa y Nº)
+document.querySelectorAll('.dropdown-parent').forEach(function(parent) {
+    parent.addEventListener('click', function(e) {
+        e.preventDefault();
+        this.classList.toggle('active');
+        const menu = this.nextElementSibling;
+        if (menu && menu.classList.contains('dropdown-menu-sub')) {
+            menu.classList.toggle('show');
+        }
+    });
+});
+
+// Inicializar dropdowns activos al cargar
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.dropdown-menu-sub .dropdown-item.active').forEach(function(item) {
+        const menu = item.closest('.dropdown-menu-sub');
+        if (menu) {
+            menu.classList.add('show');
+            const parent = menu.previousElementSibling;
+            if (parent && parent.classList.contains('dropdown-parent')) {
+                parent.classList.add('active');
+            }
+        }
+    });
+});
+
 // ─── Utilidades de Tablas ───
 function filterTable(inputId, tableId) {
     const input = document.getElementById(inputId);

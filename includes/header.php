@@ -167,6 +167,40 @@ a, button, .btn, select, label[for], [role="button"], .fact-row,
 }
 .sidebar .nav-link i { font-size: .93rem; width: 17px; text-align: center; flex-shrink: 0; }
 
+/* Dropdown submenu en sidebar */
+.sidebar .dropdown-parent { position: relative; cursor: pointer; }
+.sidebar .dropdown-parent.active .bi-chevron-down { transform: rotate(180deg); }
+.sidebar .dropdown-menu-sub {
+  background: rgba(0,0,0,.15) !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 0 0 1rem !important;
+  display: none;
+}
+.sidebar .dropdown-menu-sub.show { display: block; }
+.sidebar .dropdown-menu-sub .dropdown-item {
+  color: var(--sb-text);
+  font-size: .78rem;
+  padding: .35rem .9rem .35rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  background: transparent !important;
+}
+.sidebar .dropdown-menu-sub .dropdown-item:hover,
+.sidebar .dropdown-menu-sub .dropdown-item.active {
+  color: var(--sb-active);
+  background: rgba(99,102,241,.15) !important;
+}
+.sidebar .dropdown-menu-sub .dropdown-item i {
+  font-size: .85rem;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--sb-muted);
+}
+
 .sidebar-bottom {
   margin-top: auto; padding: .85rem .9rem;
   border-top: 1px solid var(--sb-border);
@@ -554,20 +588,29 @@ if ($update && $update['version'] !== $dismissed):
   <a href="/ajustes/usuarios.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/usuarios') ? 'active' : '' ?>">
     <i class="bi bi-people-fill"></i> Usuarios
   </a>
-  <a href="/ajustes/empresa.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>">
-    <i class="bi bi-building"></i> Empresa y nº
-  </a>
-  <a href="/ajustes/plantilla.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/plantilla') ? 'active' : '' ?>">
-    <i class="bi bi-palette"></i> Plantilla factura
-  </a>
+
+  <!-- Empresa y Nº (dropdown padre) -->
+  <div class="nav-link dropdown-parent" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+    <i class="bi bi-building"></i> Empresa y Nº
+    <i class="bi bi-chevron-down ms-auto" style="font-size: .7rem; transition: transform .2s;" id="arrowEmpresa"></i>
+  </div>
+  <ul class="dropdown-menu dropdown-menu-sub" style="margin-left: 1rem; background: rgba(0,0,0,.15); border: none; box-shadow: none; padding: 0;">
+    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/empresa') ? 'active' : '' ?>" href="/ajustes/empresa.php">
+      <i class="bi bi-building me-2"></i>Datos
+    </a></li>
+    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/plantilla') ? 'active' : '' ?>" href="/ajustes/plantilla.php">
+      <i class="bi bi-palette me-2"></i>Plantilla factura
+    </a></li>
+    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>" href="/ajustes/categorias_gasto.php">
+      <i class="bi bi-tags me-2"></i>Categorías de gasto
+    </a></li>
+    <li><a class="dropdown-item <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/trimestres') ? 'active' : '' ?>" href="/ajustes/trimestres.php">
+      <i class="bi bi-calendar-check me-2"></i>Trimestres fiscales
+    </a></li>
+  </ul>
+
   <a href="/ajustes/tema.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/tema') ? 'active' : '' ?>">
     <i class="bi bi-brush"></i> Tema interfaz
-  </a>
-  <a href="/ajustes/categorias_gasto.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/categorias_gasto') ? 'active' : '' ?>">
-    <i class="bi bi-tags"></i> Categorías de gasto
-  </a>
-  <a href="/ajustes/trimestres.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/trimestres') ? 'active' : '' ?>">
-    <i class="bi bi-calendar-check"></i> Trimestres fiscales
   </a>
   <a href="/ajustes/backup.php" class="nav-link <?= str_contains($_SERVER['REQUEST_URI'],'/ajustes/backup') ? 'active' : '' ?>">
     <i class="bi bi-database-check"></i> Copias de seguridad
