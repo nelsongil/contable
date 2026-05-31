@@ -88,7 +88,7 @@ SELECT DISTINCT
     trimestre AS trimestre,
     'abierto' AS estado
 FROM facturas_emitidas
-ON DUPLICATE KEY UPDATE estado = estado;
+ON DUPLICATE KEY UPDATE estado = VALUES(estado);
 
 INSERT INTO trimestres_fiscales (anio, trimestre, estado)
 SELECT DISTINCT
@@ -96,7 +96,7 @@ SELECT DISTINCT
     trimestre AS trimestre,
     'abierto' AS estado
 FROM facturas_recibidas
-ON DUPLICATE KEY UPDATE estado = estado;
+ON DUPLICATE KEY UPDATE estado = VALUES(estado);
 
 -- Asegurar que existen los trimestres del año actual
 -- (útil para instalaciones nuevas o sin facturas aún)
