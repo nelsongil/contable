@@ -307,18 +307,48 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
                     $anioActualTrim = $anioFecha;
                 }
 
-                // Generar opciones: T1-T4 del año anterior, T1-T4 del año actual, T1-T4 del año siguiente
-                for ($anioOffset = -1; $anioOffset <= 1; $anioOffset++):
-                  $anioTrim = $anioActual + $anioOffset;
+                // Calcular trimestre y año actual (hoy, no la fecha por defecto)
+                $trimHoy = trimestre(date('Y-m-d'));
+                $anioHoy = (int)date('Y');
+
+                // Determinar qué años mostrar: año anterior, año actual, y año siguiente SOLO si estamos en T4
+                $aniosAMostrar = [$anioHoy - 1, $anioHoy];
+                if ($trimHoy === 4) {
+                    $aniosAMostrar[] = $anioHoy + 1;
+                }
+
+                // Construir lista de trimestres cerrados (incluye todos los anteriores al más reciente cerrado)
+                $trimestresCerradosExpandido = [];
+                if (!empty($trimestresCerrados)) {
+                    // Encontrar el trimestre cerrado más reciente
+                    $trimCerradoMax = [0, 0]; // [anio, trimestre]
+                    foreach ($trimestresCerrados as $cerrado) {
+                        list($a, $t) = explode('-', $cerrado);
+                        if ($a > $trimCerradoMax[0] || ($a == $trimCerradoMax[0] && $t > $trimCerradoMax[1])) {
+                            $trimCerradoMax = [(int)$a, (int)$t];
+                        }
+                    }
+                    // Todos los trimestres anteriores o iguales al más reciente cerrado están cerrados
+                    foreach ($aniosAMostrar as $a) {
+                        for ($t = 1; $t <= 4; $t++) {
+                            if ($a < $trimCerradoMax[0] || ($a == $trimCerradoMax[0] && $t <= $trimCerradoMax[1])) {
+                                $trimestresCerradosExpandido[] = $a . '-' . $t;
+                            }
+                        }
+                    }
+                }
+
+                // Generar opciones
+                foreach ($aniosAMostrar as $anioTrim):
                   for ($t = 1; $t <= 4; $t++):
                     $label = "T$t " . $anioTrim . " - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
-                    $disabled = in_array($anioTrim . '-' . $t, $trimestresCerrados) ? 'disabled' : '';
+                    $disabled = in_array($anioTrim . '-' . $t, $trimestresCerradosExpandido) ? 'disabled' : '';
                     // Seleccionar el trimestre que corresponda
                     $isSelected = ($anioTrim == $anioActualTrim && $t == $trimActual);
                   ?>
                   <option value="<?= $t ?>" data-anio="<?= $anioTrim ?>" <?= $isSelected ? 'selected' : '' ?> <?= $disabled ?>><?= $label ?><?= $disabled ? ' (cerrado)' : '' ?></option>
                   <?php endfor; ?>
-                <?php endfor; ?>
+                <?php endforeach; ?>
               </select>
               <span id="trimestreInfo" class="badge" style="font-size:.75rem;white-space:nowrap"></span>
             </div>
@@ -591,11 +621,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let trimManualPrevio = document.getElementById('trimestreManual')?.value || '';
     let anioPrevio = document.getElementById('trimestreManual')?.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
 
+    /**
+     * Determina si un trimestre seleccionado es posterior al natural de la fecha
+     * @param {number} trimNatural - Trimestre natural de la fecha (1-4)
+     * @param {number} anioFecha - Año de la fecha
+     * @param {number} trimManual - Trimestre seleccionado (1-4)
+     * @param {number} anioManual - Año del trimestre seleccionado
+     * @returns {boolean}
+     */
+    function esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioManual) {
+        if (anioManual > anioFecha) return true;  // Año siguiente -> posterior
+        if (anioManual < anioFecha) return false; // Año anterior -> anterior
+        return trimManual > trimNatural;          // Mismo año: comparar trimestres
+    }
+
     document.getElementById('trimestreManual')?.addEventListener('change', function() {
         const fecha = document.getElementById('fecha').value;
         const trimNatural = getTrimestreFromFecha(fecha);
         const trimManual = parseInt(this.value) || null;
         const anioSeleccionado = this.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
+        const anioFecha = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
 
         if (!trimManual) {
             updateTrimestreInfo();
@@ -603,11 +648,11 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Solo mostrar modal si es trimestre posterior (no si es anterior o igual)
-        if (trimManual > trimNatural) {
+        // Mostrar modal si es trimestre posterior
+        if (esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioSeleccionado)) {
             const modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
             document.getElementById('modalFecha').textContent = fecha;
-            document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural + '/' + new Date(fecha).getFullYear();
+            document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural + '/' + anioFecha;
             document.getElementById('modalTrimSelect').textContent = 'T' + trimManual + '/' + anioSeleccionado;
 
             // Confirmar: mantiene el trimestre seleccionado y actualiza el previo
