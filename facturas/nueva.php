@@ -317,23 +317,13 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
                     $aniosAMostrar[] = $anioHoy + 1;
                 }
 
-                // Construir lista de trimestres cerrados (incluye todos los anteriores al más reciente cerrado)
-                $trimestresCerradosExpandido = [];
+                // Encontrar el último trimestre cerrado (el más reciente)
+                $ultimoCerrado = null; // ['anio' => X, 'trimestre' => Y]
                 if (!empty($trimestresCerrados)) {
-                    // Encontrar el trimestre cerrado más reciente
-                    $trimCerradoMax = [0, 0]; // [anio, trimestre]
                     foreach ($trimestresCerrados as $cerrado) {
                         list($a, $t) = explode('-', $cerrado);
-                        if ($a > $trimCerradoMax[0] || ($a == $trimCerradoMax[0] && $t > $trimCerradoMax[1])) {
-                            $trimCerradoMax = [(int)$a, (int)$t];
-                        }
-                    }
-                    // Todos los trimestres anteriores o iguales al más reciente cerrado están cerrados
-                    foreach ($aniosAMostrar as $a) {
-                        for ($t = 1; $t <= 4; $t++) {
-                            if ($a < $trimCerradoMax[0] || ($a == $trimCerradoMax[0] && $t <= $trimCerradoMax[1])) {
-                                $trimestresCerradosExpandido[] = $a . '-' . $t;
-                            }
+                        if (!$ultimoCerrado || $a > $ultimoCerrado['anio'] || ($a == $ultimoCerrado['anio'] && $t > $ultimoCerrado['trimestre'])) {
+                            $ultimoCerrado = ['anio' => (int)$a, 'trimestre' => (int)$t];
                         }
                     }
                 }
@@ -342,7 +332,12 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
                 foreach ($aniosAMostrar as $anioTrim):
                   for ($t = 1; $t <= 4; $t++):
                     $label = "T$t " . $anioTrim . " - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
-                    $disabled = in_array($anioTrim . '-' . $t, $trimestresCerradosExpandido) ? 'disabled' : '';
+                    // Deshabilitar si es igual o anterior al último trimestre cerrado
+                    $esCerrado = $ultimoCerrado && (
+                        $anioTrim < $ultimoCerrado['anio'] ||
+                        ($anioTrim == $ultimoCerrado['anio'] && $t <= $ultimoCerrado['trimestre'])
+                    );
+                    $disabled = $esCerrado ? 'disabled' : '';
                     // Seleccionar el trimestre que corresponda
                     $isSelected = ($anioTrim == $anioActualTrim && $t == $trimActual);
                   ?>
@@ -623,33 +618,42 @@ document.addEventListener('DOMContentLoaded', function() {
 
     /**
      * Determina si un trimestre seleccionado es posterior al natural de la fecha
-     * @param {number} trimNatural - Trimestre natural de la fecha (1-4)
-     * @param {number} anioFecha - Año de la fecha
-     * @param {number} trimManual - Trimestre seleccionado (1-4)
-     * @param {number} anioManual - Año del trimestre seleccionado
-     * @returns {boolean}
+     * Compara primero por año, luego por trimestre
      */
     function esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioManual) {
+        anioManual = parseInt(anioManual);
+        anioFecha = parseInt(anioFecha);
+        trimManual = parseInt(trimManual);
+        trimNatural = parseInt(trimNatural);
+
         if (anioManual > anioFecha) return true;  // Año siguiente -> posterior
         if (anioManual < anioFecha) return false; // Año anterior -> anterior
         return trimManual > trimNatural;          // Mismo año: comparar trimestres
     }
 
-    document.getElementById('trimestreManual')?.addEventListener('change', function() {
-        const fecha = document.getElementById('fecha').value;
+    document.getElementById('trimestreManual')?.addEventListener('change', function(e) {
+        const fecha = document.getElementById('fecha').value || new Date().toISOString().slice(0, 10);
         const trimNatural = getTrimestreFromFecha(fecha);
-        const trimManual = parseInt(this.value) || null;
-        const anioSeleccionado = this.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
-        const anioFecha = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
+        const anioFecha = new Date(fecha).getFullYear();
+
+        const trimManual = this.value ? parseInt(this.value) : null;
+        const selectedOption = this.selectedOptions[0];
+        const anioSeleccionado = selectedOption?.dataset?.anio ? parseInt(selectedOption.dataset.anio) : anioFecha;
+
+        console.log('Change triggered:', { fecha, trimNatural, anioFecha, trimManual, anioSeleccionado });
 
         if (!trimManual) {
             updateTrimestreInfo();
             trimManualPrevio = '';
+            anioPrevio = anioFecha;
             return;
         }
 
+        const esPosterior = esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioSeleccionado);
+        console.log('¿Es posterior?', esPosterior);
+
         // Mostrar modal si es trimestre posterior
-        if (esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioSeleccionado)) {
+        if (esPosterior) {
             const modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
             document.getElementById('modalFecha').textContent = fecha;
             document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural + '/' + anioFecha;
@@ -668,10 +672,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (btnCancelar) {
                 btnCancelar.onclick = () => {
                     if (!trimManualPrevio) {
-                        // Volver a automático
                         this.value = '';
                     } else {
-                        // Buscar y seleccionar la opción con el valor y año previos
                         for (const opt of this.options) {
                             if (opt.value === trimManualPrevio && opt.dataset.anio === anioPrevio) {
                                 opt.selected = true;
