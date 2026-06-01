@@ -909,13 +909,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Validación de trimestre: modal posterior ─────────────────────
     // Los trimestres cerrados ya están deshabilitados en el select (no seleccionables)
 
-    console.log('Inicializando validación de trimestres');
-    console.log('trimestreManual existe:', !!document.getElementById('trimestreManual'));
+    console.log('Inicializando validación de trimestres (compras)');
+    var trimManualEl = document.getElementById('trimestreManual');
+    console.log('trimestreManual existe:', !!trimManualEl);
     console.log('trimestresCerrados:', <?= json_encode($trimestresCerrados) ?>);
 
     // Variable para almacenar el valor anterior del dropdown
-    let trimManualPrevio = document.getElementById('trimestreManual')?.value || '';
-    let anioPrevio = document.getElementById('trimestreManual')?.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
+    var trimManualPrevio = trimManualEl ? (trimManualEl.value || '') : '';
+    var anioPrevio = (trimManualEl && trimManualEl.selectedOptions && trimManualEl.selectedOptions[0] && trimManualEl.selectedOptions[0].dataset && trimManualEl.selectedOptions[0].dataset.anio) ? parseInt(trimManualEl.selectedOptions[0].dataset.anio) : new Date().getFullYear();
 
     /**
      * Determina si un trimestre seleccionado es posterior al natural de la fecha
@@ -932,80 +933,89 @@ document.addEventListener('DOMContentLoaded', function() {
         return trimManual > trimNatural;          // Mismo año: comparar trimestres
     }
 
-    document.getElementById('trimestreManual')?.addEventListener('change', function(e) {
-        const fecha = document.getElementById('inputFecha').value || new Date().toISOString().slice(0, 10);
-        const trimNatural = getTrimestreFromFecha(fecha);
-        const anioFecha = new Date(fecha).getFullYear();
+    if (trimManualEl) {
+        trimManualEl.addEventListener('change', function(e) {
+            var fecha = document.getElementById('inputFecha').value || new Date().toISOString().slice(0, 10);
+            var trimNatural = getTrimestreFromFecha(fecha);
+            var anioFecha = new Date(fecha).getFullYear();
 
-        const trimManual = this.value ? parseInt(this.value) : null;
-        const selectedOption = this.selectedOptions[0];
-        const anioSeleccionado = selectedOption?.dataset?.anio ? parseInt(selectedOption.dataset.anio) : anioFecha;
+            var trimManual = this.value ? parseInt(this.value) : null;
+            var selectedOption = this.selectedOptions[0];
+            var anioSeleccionado = (selectedOption && selectedOption.dataset && selectedOption.dataset.anio) ? parseInt(selectedOption.dataset.anio) : anioFecha;
 
-        console.log('Change triggered:', { fecha, trimNatural, anioFecha, trimManual, anioSeleccionado });
+            console.log('Change triggered:', { fecha: fecha, trimNatural: trimNatural, anioFecha: anioFecha, trimManual: trimManual, anioSeleccionado: anioSeleccionado });
 
-        if (!trimManual) {
-            updateTrimestreInfo();
-            trimManualPrevio = '';
-            anioPrevio = anioFecha;
-            return;
-        }
-
-        const esPosterior = esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioSeleccionado);
-        console.log('¿Es posterior?', esPosterior);
-
-        // Mostrar modal si es trimestre posterior
-        if (esPosterior) {
-            const modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
-            document.getElementById('modalFecha').textContent = fecha;
-            document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural + '/' + anioFecha;
-            document.getElementById('modalTrimSelect').textContent = 'T' + trimManual + '/' + anioSeleccionado;
-
-            // Confirmar: mantiene el trimestre seleccionado y actualiza el previo
-            document.getElementById('btnConfirmarTrimestrePosterior').onclick = () => {
-                trimManualPrevio = this.value;
-                anioPrevio = anioSeleccionado;
+            if (!trimManual) {
                 updateTrimestreInfo();
-                modal.hide();
-            }.bind(this);
+                trimManualPrevio = '';
+                anioPrevio = anioFecha;
+                return;
+            }
 
-            // Cancelar: vuelve al trimestre anterior (natural o el que tenía antes)
-            const btnCancelar = modal._element.querySelector('[data-bs-dismiss="modal"]');
-            if (btnCancelar) {
-                btnCancelar.onclick = () => {
-                    if (!trimManualPrevio) {
-                        this.value = '';
-                    } else {
-                        for (const opt of this.options) {
-                            if (opt.value === trimManualPrevio && opt.dataset.anio === anioPrevio) {
-                                opt.selected = true;
-                                break;
-                            }
-                        }
-                    }
+            var esPosterior = esTrimestrePosterior(trimNatural, anioFecha, trimManual, anioSeleccionado);
+            console.log('¿Es posterior?', esPosterior);
+
+            // Mostrar modal si es trimestre posterior
+            if (esPosterior) {
+                var modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
+                document.getElementById('modalFecha').textContent = fecha;
+                document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural + '/' + anioFecha;
+                document.getElementById('modalTrimSelect').textContent = 'T' + trimManual + '/' + anioSeleccionado;
+
+                // Confirmar: mantiene el trimestre seleccionado y actualiza el previo
+                document.getElementById('btnConfirmarTrimestrePosterior').onclick = function() {
+                    trimManualPrevio = trimManualEl.value;
+                    anioPrevio = anioSeleccionado;
                     updateTrimestreInfo();
                     modal.hide();
                 };
+
+                // Cancelar: vuelve al trimestre anterior (natural o el que tenía antes)
+                setTimeout(function() {
+                    var btnCancelar = modal._element.querySelector('[data-bs-dismiss="modal"]');
+                    if (btnCancelar) {
+                        btnCancelar.onclick = function() {
+                            if (!trimManualPrevio) {
+                                trimManualEl.value = '';
+                            } else {
+                                for (var i = 0; i < trimManualEl.options.length; i++) {
+                                    var opt = trimManualEl.options[i];
+                                    if (opt.value === trimManualPrevio && opt.dataset.anio === anioPrevio) {
+                                        opt.selected = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            updateTrimestreInfo();
+                            modal.hide();
+                        };
+                    }
+                }, 100);
+
+                modal.show();
+            } else {
+                // Trimestre anterior o igual: solo actualizar info
+                trimManualPrevio = trimManualEl.value;
+                anioPrevio = anioSeleccionado;
+                updateTrimestreInfo();
             }
+        });
+    }
 
-            modal.show();
-        } else {
-            // Trimestre anterior o igual: solo actualizar info
-            trimManualPrevio = this.value;
-            anioPrevio = anioSeleccionado;
+    // Actualizar el valor previo cuando cambia la fecha (el natural cambia)
+    var fechaEl = document.getElementById('inputFecha');
+    if (fechaEl) {
+        fechaEl.addEventListener('change', function() {
+            var trimNatural = getTrimestreFromFecha(this.value);
+            var anioFecha = new Date(this.value).getFullYear();
+            // Si el dropdown estaba en automático, el previo se resetea
+            if (!trimManualEl || !trimManualEl.value) {
+                trimManualPrevio = '';
+                anioPrevio = anioFecha;
+            }
             updateTrimestreInfo();
-        }
-    });
-
-    document.getElementById('inputFecha')?.addEventListener('change', function() {
-        const trimNatural = getTrimestreFromFecha(this.value);
-        const anioFecha = new Date(this.value).getFullYear();
-        // Si el dropdown estaba en automático, el previo se resetea
-        if (!document.getElementById('trimestreManual').value) {
-            trimManualPrevio = '';
-            anioPrevio = anioFecha;
-        }
-        updateTrimestreInfo();
-    });
+        });
+    }
 
     updateTrimestreInfo();
 
