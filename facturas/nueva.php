@@ -612,6 +612,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // ── Validación de trimestre: modal posterior ─────────────────────
     // Los trimestres cerrados ya están deshabilitados en el select (no seleccionables)
 
+    console.log('Inicializando validación de trimestres (facturas)');
+    console.log('trimestreManual existe:', !!document.getElementById('trimestreManual'));
+    console.log('trimestresCerrados:', <?= json_encode($trimestresCerrados) ?>);
+
     // Variable para almacenar el valor anterior del dropdown
     let trimManualPrevio = document.getElementById('trimestreManual')?.value || '';
     let anioPrevio = document.getElementById('trimestreManual')?.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
