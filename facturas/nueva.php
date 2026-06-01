@@ -210,72 +210,6 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
 <div class="alert alert-danger"><?= e($error) ?></div>
 <?php endif; ?>
 
-<!-- Alerta dinámica de validación de trimestre -->
-<div id="trimestreAlertContainer"></div>
-
-<!-- Modal de confirmación trimestre posterior -->
-<div class="modal fade" id="trimestrePosteriorModal" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-warning">
-      <div class="modal-header bg-warning-subtle">
-        <h5 class="modal-title">
-          <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-          Trimestre Posterior
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p class="mb-2">Vas a asignar esta factura a un trimestre <strong>posterior</strong> al que corresponde por su fecha.</p>
-        <p class="mb-0 text-muted" style="font-size:.9rem">
-          Esto es útil para facturas que quieres adelantar al siguiente periodo fiscal.
-        </p>
-        <div class="alert alert-info mt-3 mb-0" style="font-size:.85rem">
-          <i class="bi bi-info-circle me-1"></i>
-          <strong>Resumen:</strong><br>
-          Fecha: <strong id="modalFecha"></strong> → Trimestre natural: <strong id="modalTrimNatural"></strong><br>
-          Trimestre seleccionado: <strong id="modalTrimSelect"></strong>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-warning" id="btnConfirmarTrimestrePosterior">
-          <i class="bi bi-check-lg me-1"></i>Confirmar
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal de trimestre cerrado (bloqueante) -->
-<div class="modal fade" id="trimestreCerradoModal" tabindex="-1" data-bs-backdrop="static">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-danger">
-      <div class="modal-header bg-danger text-white">
-        <h5 class="modal-title">
-          <i class="bi bi-lock-fill me-2"></i>
-          Trimestre Cerrado
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <p class="mb-3">
-          <strong>No se puede guardar la factura en este trimestre.</strong>
-        </p>
-        <p class="mb-2">
-          El trimestre <strong id="modalTrimCerrado"></strong> está <span class="badge bg-danger">cerrado</span> porque ya ha sido presentado a la AEAT.
-        </p>
-        <div class="alert alert-warning mt-3 mb-0" style="font-size:.85rem">
-          <i class="bi bi-shield-exclamation me-1"></i>
-          Para modificar facturas de un trimestre cerrado, primero debes contactar con el administrador.
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Entendido</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <form method="post" id="formFactura">
 <?= csrfField() ?>
 <div class="row g-3">
@@ -353,17 +287,37 @@ $defaultVenc  = $isEdit ? ($factura['fecha_vencimiento'] ?? '') : date('Y-m-d', 
               <select name="trimestre_manual" id="trimestreManual" class="form-select">
                 <option value="">Automático (según fecha)</option>
                 <?php
-                $trimActual = $isEdit ? ($factura['trimestre_manual'] ?? $factura['trimestre']) : trimestre($defaultFecha);
-                $anioFiscal = (int)date('Y', strtotime($defaultFecha));
-                for ($t = 1; $t <= 4; $t++):
-                  $label = "T$t - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
-                  // Calcular año fiscal para este trimestre
-                  $anioTrim = $anioFiscal;
-                  if ($t < $trimActual) $anioTrim--;
-                  elseif ($t > $trimActual) $anioTrim++;
-                  $disabled = in_array($anioTrim . '-' . $t, $trimestresCerrados) ? 'disabled' : '';
-                ?>
-                <option value="<?= $t ?>" <?= $trimActual == $t ? 'selected' : '' ?> <?= $disabled ?>><?= $label ?><?= $disabled ? ' (cerrado)' : '' ?></option>
+                $trimNatural = trimestre($defaultFecha);
+                $anioActual = (int)date('Y');
+                $anioFecha = (int)date('Y', strtotime($defaultFecha));
+
+                // Determinar trimestre y año a seleccionar
+                if ($isEdit && $factura['trimestre_manual']) {
+                    $trimActual = $factura['trimestre_manual'];
+                    // Calcular el año fiscal basado en la diferencia entre trimestre natural y manual
+                    $trimNaturalFecha = trimestre($factura['fecha']);
+                    $anioActualTrim = $anioFecha;
+                    if ($factura['trimestre_manual'] < $trimNaturalFecha) {
+                        $anioActualTrim--;
+                    } elseif ($factura['trimestre_manual'] > $trimNaturalFecha) {
+                        $anioActualTrim++;
+                    }
+                } else {
+                    $trimActual = $trimNatural;
+                    $anioActualTrim = $anioFecha;
+                }
+
+                // Generar opciones: T1-T4 del año anterior, T1-T4 del año actual, T1-T4 del año siguiente
+                for ($anioOffset = -1; $anioOffset <= 1; $anioOffset++):
+                  $anioTrim = $anioActual + $anioOffset;
+                  for ($t = 1; $t <= 4; $t++):
+                    $label = "T$t " . $anioTrim . " - " . ['Ene-Mar','Abr-Jun','Jul-Sep','Oct-Dic'][$t-1];
+                    $disabled = in_array($anioTrim . '-' . $t, $trimestresCerrados) ? 'disabled' : '';
+                    // Seleccionar el trimestre que corresponda
+                    $isSelected = ($anioTrim == $anioActualTrim && $t == $trimActual);
+                  ?>
+                  <option value="<?= $t ?>" data-anio="<?= $anioTrim ?>" <?= $isSelected ? 'selected' : '' ?> <?= $disabled ?>><?= $label ?><?= $disabled ? ' (cerrado)' : '' ?></option>
+                  <?php endfor; ?>
                 <?php endfor; ?>
               </select>
               <span id="trimestreInfo" class="badge" style="font-size:.75rem;white-space:nowrap"></span>
@@ -603,12 +557,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const fecha = document.getElementById('fecha').value;
         const trimManual = parseInt(document.getElementById('trimestreManual').value) || null;
         const trimNatural = getTrimestreFromFecha(fecha);
-        const trimEfetivo = trimManual ?? trimNatural;
+        const anioFecha = fecha ? new Date(fecha).getFullYear() : new Date().getFullYear();
+        const anioSeleccionado = document.getElementById('trimestreManual')?.selectedOptions[0]?.dataset?.anio || anioFecha;
         const infoEl = document.getElementById('trimestreInfo');
         const naturalText = document.getElementById('trimestreNaturalText');
 
         if (naturalText) {
-            naturalText.innerHTML = 'Trimestre natural: <strong>T' + trimNatural + '</strong>';
+            naturalText.innerHTML = 'Trimestre natural: <strong>T' + trimNatural + '/' + anioFecha + '</strong>';
         }
 
         if (!trimManual) {
@@ -619,7 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (trimManual !== trimNatural) {
             if (infoEl) {
                 infoEl.className = 'badge bg-warning-subtle text-warning-emphasis';
-                infoEl.textContent = 'Manual (T' + trimManual + ')';
+                infoEl.textContent = 'Manual (T' + trimManual + '/' + anioSeleccionado + ')';
             }
         } else {
             if (infoEl) {
@@ -629,48 +584,56 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ── Validación simplificada: solo modal posterior ─────────────
-    // Los trimestres cerrados ya están deshabilitados en el select
+    // ── Validación de trimestre: modal posterior ─────────────────────
+    // Los trimestres cerrados ya están deshabilitados en el select (no seleccionables)
 
-    function getAnioFiscal(fechaStr, trimNatural, trimManual) {
-        if (!fechaStr) return new Date().getFullYear();
-        const anioBase = new Date(fechaStr + 'T00:00:00').getFullYear();
-        if (trimManual && trimManual !== trimNatural) {
-            if (trimManual < trimNatural) return anioBase - 1;
-            if (trimManual > trimNatural) return anioBase + 1;
-        }
-        return anioBase;
-    }
+    // Variable para almacenar el valor anterior del dropdown
+    let trimManualPrevio = document.getElementById('trimestreManual')?.value || '';
+    let anioPrevio = document.getElementById('trimestreManual')?.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
 
     document.getElementById('trimestreManual')?.addEventListener('change', function() {
         const fecha = document.getElementById('fecha').value;
         const trimNatural = getTrimestreFromFecha(fecha);
         const trimManual = parseInt(this.value) || null;
+        const anioSeleccionado = this.selectedOptions[0]?.dataset?.anio || new Date().getFullYear();
 
         if (!trimManual) {
             updateTrimestreInfo();
+            trimManualPrevio = '';
             return;
         }
 
-        // Solo mostrar modal si es trimestre posterior
+        // Solo mostrar modal si es trimestre posterior (no si es anterior o igual)
         if (trimManual > trimNatural) {
-            const anioDestino = getAnioFiscal(fecha, trimNatural, trimManual);
             const modal = new bootstrap.Modal(document.getElementById('trimestrePosteriorModal'));
             document.getElementById('modalFecha').textContent = fecha;
-            document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural;
-            document.getElementById('modalTrimSelect').textContent = 'T' + trimManual + '/' + anioDestino;
+            document.getElementById('modalTrimNatural').textContent = 'T' + trimNatural + '/' + new Date(fecha).getFullYear();
+            document.getElementById('modalTrimSelect').textContent = 'T' + trimManual + '/' + anioSeleccionado;
 
-            // Confirmar: mantiene el trimestre seleccionado
+            // Confirmar: mantiene el trimestre seleccionado y actualiza el previo
             document.getElementById('btnConfirmarTrimestrePosterior').onclick = () => {
-                modal.hide();
+                trimManualPrevio = this.value;
+                anioPrevio = anioSeleccionado;
                 updateTrimestreInfo();
-            };
+                modal.hide();
+            }.bind(this);
 
-            // Cancelar: vuelve al automático (importante!)
+            // Cancelar: vuelve al trimestre anterior (natural o el que tenía antes)
             const btnCancelar = modal._element.querySelector('[data-bs-dismiss="modal"]');
             if (btnCancelar) {
                 btnCancelar.onclick = () => {
-                    this.value = '';
+                    if (!trimManualPrevio) {
+                        // Volver a automático
+                        this.value = '';
+                    } else {
+                        // Buscar y seleccionar la opción con el valor y año previos
+                        for (const opt of this.options) {
+                            if (opt.value === trimManualPrevio && opt.dataset.anio === anioPrevio) {
+                                opt.selected = true;
+                                break;
+                            }
+                        }
+                    }
                     updateTrimestreInfo();
                     modal.hide();
                 };
@@ -678,11 +641,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
             modal.show();
         } else {
+            // Trimestre anterior o igual: solo actualizar info
+            trimManualPrevio = this.value;
+            anioPrevio = anioSeleccionado;
             updateTrimestreInfo();
         }
     });
 
+    // Actualizar el valor previo cuando cambia la fecha (el natural cambia)
     document.getElementById('fecha')?.addEventListener('change', function() {
+        const trimNatural = getTrimestreFromFecha(this.value);
+        const anioFecha = new Date(this.value).getFullYear();
+        // Si el dropdown estaba en automático, el previo se resetea
+        if (!document.getElementById('trimestreManual').value) {
+            trimManualPrevio = '';
+            anioPrevio = anioFecha;
+        }
         updateTrimestreInfo();
     });
 
