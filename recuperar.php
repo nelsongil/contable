@@ -113,11 +113,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'email') {
             $expira = date('Y-m-d H:i:s', strtotime('+10 minutes'));
             $tokenHash = password_hash($codigo, PASSWORD_DEFAULT);
 
+            // Guardar código en sesión para debug
+            $_SESSION['reset_debug_codigo'] = $codigo;
+
+            error_log("[RECUPERAR] Código generado: $codigo");
+            error_log("[RECUPERAR] Hash: $tokenHash");
+
             // Invalidar tokens anteriores
             $db->prepare("UPDATE password_reset_tokens SET usado = 1 WHERE usuario_id = ?")->execute([$usuario['id']]);
 
             $st = $db->prepare("INSERT INTO password_reset_tokens (usuario_id, token, expira_en) VALUES (?, ?, ?)");
             $st->execute([$usuario['id'], $tokenHash, $expira]);
+
+            error_log("[RECUPERAR] Token insertado en BD para usuario {$usuario['id']}");
 
             $asunto = 'Recuperación de contraseña - ' . getConfig('empresa_sociedad', EMPRESA_SOCIEDAD);
             $cuerpo = "
@@ -572,12 +580,13 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
     <strong>DEBUG v<?= $DEBUG_TIMESTAMP ?>:</strong><br>
     <br>
+    <strong>Código en sesión:</strong> <?= e($_SESSION['reset_debug_codigo'] ?? 'NO') ?><br>
     <?php if (isset($debugCodigo)): ?>
     <strong>Código recibido:</strong> <?= e($debugCodigo) ?> (long: <?= strlen($debugCodigo) ?>)<br>
     <strong>Token hash (BD):</strong> <?= e($debugTokenUsado ?? 'N/A') ?><br>
     <strong>password_verify:</strong> <?= e($debugVerifyResult ?? 'N/A') ?><br>
-    <br>
     <?php endif; ?>
+    <br>
     <strong>Token en BD:</strong>
     <?php
     if (!empty($_SESSION['reset_usuario_id'])) {
