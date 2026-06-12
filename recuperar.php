@@ -177,6 +177,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $debugPOSTRaw = null;
 }
 
+// ── Debug: Ver TODO el POST ──────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("[RECUPERAR] POST completo: " . print_r($_POST, true));
+    $debugPOSTRaw = $_POST;
+} else {
+    $debugPOSTRaw = null;
+}
+
 // ── Paso 2: Verificar código ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     $codigoArr = $_POST['codigo'] ?? [];
@@ -194,56 +202,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     }
     $codigoUsuario = substr($codigoUsuario, 0, 6); // Asegurar máximo 6 dígitos
 
-    // Debug: log del código recibido
     error_log("[RECUPERAR] Código unido: '$codigoUsuario'");
     error_log("[RECUPERAR] Longitud: " . strlen($codigoUsuario));
-    error_log("[RECUPERAR] Usuario ID en sesión: " . ($_SESSION['reset_usuario_id'] ?? 'NO'));
-    error_log("[RECUPERAR] Email en sesión: " . ($_SESSION['reset_email'] ?? 'NO'));
 
     // Guardar info para debug en pantalla
     $debugPost = $codigoArr;
     $debugCodigo = $codigoUsuario;
-    $debugSessionOk = !empty($_SESSION['reset_usuario_id']);
+    $debugTokenUsado = null;
+    $debugVerifyResult = null;
 
     if (strlen($codigoUsuario) !== 6) {
-        error_log("[RECUPERAR] Error: longitud incorrecta ($codigoUsuario)");
         $error = 'El código debe tener 6 dígitos. Recibido: "' . e($codigoUsuario) . '" (long: ' . strlen($codigoUsuario) . ')';
         $step = 'codigo';
     } elseif (empty($_SESSION['reset_usuario_id'])) {
-        error_log("[RECUPERAR] Error: no hay usuario en sesión");
-        $error = 'Sesión expirada. Vuelve a iniciar el proceso.';
+        $error = 'Sesión expirada.';
         $step = 'email';
     } else {
         $usuarioId = $_SESSION['reset_usuario_id'];
 
-        // Buscar tokens no usados y no expirados
         $st = $db->prepare(
-            "SELECT id, token FROM password_reset_tokens
+            "SELECT id, token, expira_en, usado FROM password_reset_tokens
              WHERE usuario_id = ? AND usado = 0 AND expira_en > NOW()
              ORDER BY creado_en DESC LIMIT 1"
         );
         $st->execute([$usuarioId]);
         $tokenRow = $st->fetch();
 
-        error_log("[RECUPERAR] Token encontrado: " . ($tokenRow ? 'SI' : 'NO'));
         if ($tokenRow) {
             $verifyResult = password_verify($codigoUsuario, $tokenRow['token']);
-            error_log("[RECUPERAR] password_verify('$codigoUsuario', token): " . ($verifyResult ? 'TRUE' : 'FALSE'));
-        } else {
-            error_log("[RECUPERAR] No hay tokens válidos para usuario $usuarioId");
+            $debugTokenUsado = substr($tokenRow['token'], 0, 40) . '...';
+            $debugVerifyResult = $verifyResult ? 'TRUE' : 'FALSE';
+
+            error_log("[RECUPERAR] password_verify('$codigoUsuario'): " . ($verifyResult ? 'TRUE' : 'FALSE'));
+            error_log("[RECUPERAR] Token hash: " . $tokenRow['token']);
         }
 
-        if (!$tokenRow || !password_verify($codigoUsuario, $tokenRow['token'])) {
-            error_log("[RECUPERAR] Error: código incorrecto o expirado");
+        if (!$tokenRow || !$verifyResult) {
             $error = 'Código incorrecto o expirado.';
             $step = 'codigo';
         } else {
-            // Marcar como usado
             $db->prepare("UPDATE password_reset_tokens SET usado = 1 WHERE id = ?")->execute([$tokenRow['id']]);
-
-            // Guardar en sesión para el siguiente paso
             $_SESSION['reset_codigo_validado'] = true;
-            error_log("[RECUPERAR] Éxito, redirigiendo a nueva contraseña");
             redirect('/recuperar.php?step=nueva');
         }
     }
@@ -572,8 +571,14 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   <!-- DEBUG -->
   <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
     <strong>DEBUG v<?= $DEBUG_TIMESTAMP ?>:</strong><br>
-    Step: <?= e($step) ?><br>
-    Token en BD:
+    <br>
+    <?php if (isset($debugCodigo)): ?>
+    <strong>Código recibido:</strong> <?= e($debugCodigo) ?> (long: <?= strlen($debugCodigo) ?>)<br>
+    <strong>Token hash (BD):</strong> <?= e($debugTokenUsado ?? 'N/A') ?><br>
+    <strong>password_verify:</strong> <?= e($debugVerifyResult ?? 'N/A') ?><br>
+    <br>
+    <?php endif; ?>
+    <strong>Token en BD:</strong>
     <?php
     if (!empty($_SESSION['reset_usuario_id'])) {
         $stDebug = $db->prepare("SELECT id, expira_en, usado FROM password_reset_tokens WHERE usuario_id = ? AND usado = 0 ORDER BY creado_en DESC LIMIT 1");
