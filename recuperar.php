@@ -11,14 +11,17 @@ if (!empty($_SESSION['usuario_id'])) {
 }
 
 $db = getDB();
-$step = get('step', 'email');
+// Leer step: POST tiene prioridad sobre GET para formularios
+$step = $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['step'])
+    ? $_POST['step']
+    : get('step', 'email');
+
 $email = '';
 $error = '';
 $msg = '';
 
-error_log("[RECUPERAR] Step inicial: $step");
+error_log("[RECUPERAR] Step: $step");
 error_log("[RECUPERAR] REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
-error_log("[RECUPERAR] GET: " . print_r($_GET, true));
 
 // ── AJAX: Reenviar código ────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && get('action') === 'reenviar') {
