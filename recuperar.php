@@ -1,4 +1,9 @@
 <?php
+// Desactivar OPcache para este archivo (debug)
+if (function_exists('opcache_reset')) {
+    @opcache_invalidate(__FILE__, true);
+}
+
 session_start();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/functions.php';
