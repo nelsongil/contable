@@ -181,10 +181,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     error_log("[RECUPERAR] Código unido: '$codigoUsuario'");
     error_log("[RECUPERAR] Longitud: " . strlen($codigoUsuario));
     error_log("[RECUPERAR] Usuario ID en sesión: " . ($_SESSION['reset_usuario_id'] ?? 'NO'));
+    error_log("[RECUPERAR] Email en sesión: " . ($_SESSION['reset_email'] ?? 'NO'));
+
+    // Guardar info para debug en pantalla
+    $debugPost = $codigoArr;
+    $debugCodigo = $codigoUsuario;
+    $debugSessionOk = !empty($_SESSION['reset_usuario_id']);
 
     if (strlen($codigoUsuario) !== 6) {
         error_log("[RECUPERAR] Error: longitud incorrecta ($codigoUsuario)");
-        $error = 'El código debe tener 6 dígitos.';
+        $error = 'El código debe tener 6 dígitos. Recibido: "' . e($codigoUsuario) . '" (long: ' . strlen($codigoUsuario) . ')';
         $step = 'codigo';
     } elseif (empty($_SESSION['reset_usuario_id'])) {
         error_log("[RECUPERAR] Error: no hay usuario en sesión");
@@ -544,13 +550,16 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   <div class="alert">⚠ <?= e($error) ?></div>
   <?php endif; ?>
 
-  <!-- DEBUG: Solo para desarrollo -->
-  <?php if (defined('DEBUG') && DEBUG && isset($_SESSION['reset_usuario_id'])): ?>
-  <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985;">
-    <strong>DEBUG:</strong> Usuario ID: <?= (int)$_SESSION['reset_usuario_id'] ?><br>
-    Email: <?= e($_SESSION['reset_email'] ?? '') ?>
+  <!-- DEBUG: Información visible siempre en desarrollo -->
+  <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.8rem;">
+    <strong>DEBUG:</strong><br>
+    Usuario ID en sesión: <?= isset($_SESSION['reset_usuario_id']) ? (int)$_SESSION['reset_usuario_id'] : 'NO' ?><br>
+    Email en sesión: <?= e($_SESSION['reset_email'] ?? 'NO') ?><br>
+    <?php if (isset($debugCodigo)): ?>
+    Código recibido (POST): <?= e(print_r($debugPost, true)) ?><br>
+    Código unido: <strong><?= e($debugCodigo) ?></strong> (long: <?= strlen($debugCodigo) ?>)<br>
+    <?php endif; ?>
   </div>
-  <?php endif; ?>
 
   <div style="text-align: center;">
     <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 0.5rem;">
