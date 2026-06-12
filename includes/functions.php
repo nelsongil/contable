@@ -252,7 +252,7 @@ function csrfVerify(bool $ajaxMode = false): void {
 
     if ($ajaxMode) {
         header('Content-Type: application/json');
-        echo json_encode(['ok' => false, 'error' => 'Sesión caducada. Recarga la página.']);
+        echo json_encode(['ok' => false, 'error' => 'La sesión se ha cerrado por inactividad.']);
         exit;
     }
     flash('Petición inválida. Vuelve a intentarlo.', 'error');

@@ -215,6 +215,33 @@ function makeSortable(table) {
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ─── Interceptor global para errores de sesión en AJAX ───
+// Verifica las respuestas JSON y redirige al login si la sesión caducó
+const _originalFetch = window.fetch;
+window.fetch = async function(input, init = {}) {
+    try {
+        const response = await _originalFetch.call(this, input, init);
+        const contentType = response.headers.get('content-type') || '';
+
+        // Solo interceptar respuestas JSON
+        if (contentType.includes('application/json')) {
+            const clone = response.clone();
+            try {
+                const data = await clone.json();
+                if (data && data.error && data.error.includes('sesión')) {
+                    // Sesión caducada — redirigir al login con mensaje
+                    window.location.href = '/login.php?reason=timeout';
+                }
+            } catch (e) {
+                // No es JSON válido, continuar normal
+            }
+        }
+        return response;
+    } catch (error) {
+        throw error;
+    }
+};
 </script>
 </body>
 </html>

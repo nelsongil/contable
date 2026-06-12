@@ -13,7 +13,7 @@ $error = '';
 $msg   = '';
 
 switch (get('reason')) {
-    case 'timeout':   $error = 'Tu sesión ha expirado por inactividad. Por favor, identifícate de nuevo.'; break;
+    case 'timeout':   $error = 'La sesión se ha cerrado por inactividad. Vuelva a introducir sus datos.'; break;
     case 'logout':    $msg   = 'Sesión cerrada correctamente.'; break;
     case 'inactivo':  $error = 'Tu cuenta está desactivada. Contacta con el administrador.'; break;
 }
