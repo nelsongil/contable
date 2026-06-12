@@ -166,12 +166,28 @@ body{font-family:'Inter',Arial,sans-serif;background:#f4f7f5;padding:20px}
 // ── Paso 2: Verificar código ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     $codigoArr = $_POST['codigo'] ?? [];
-    $codigoUsuario = implode('', array_map(fn($v) => $v[0] ?? '', $codigoArr));
 
-    if (strlen($codigoUsuario) !== 6 || !ctype_digit($codigoUsuario)) {
+    // Unir los 6 dígitos del array, filtrando solo números
+    $codigoUsuario = '';
+    foreach ($codigoArr as $valor) {
+        if (is_string($valor) && ctype_digit($valor)) {
+            $codigoUsuario .= $valor;
+        }
+    }
+    $codigoUsuario = substr($codigoUsuario, 0, 6); // Asegurar máximo 6 dígitos
+
+    // Debug: log del código recibido
+    error_log("[RECUPERAR] Códigos recibidos: " . print_r($codigoArr, true));
+    error_log("[RECUPERAR] Código unido: '$codigoUsuario'");
+    error_log("[RECUPERAR] Longitud: " . strlen($codigoUsuario));
+    error_log("[RECUPERAR] Usuario ID en sesión: " . ($_SESSION['reset_usuario_id'] ?? 'NO'));
+
+    if (strlen($codigoUsuario) !== 6) {
+        error_log("[RECUPERAR] Error: longitud incorrecta ($codigoUsuario)");
         $error = 'El código debe tener 6 dígitos.';
         $step = 'codigo';
     } elseif (empty($_SESSION['reset_usuario_id'])) {
+        error_log("[RECUPERAR] Error: no hay usuario en sesión");
         $error = 'Sesión expirada. Vuelve a iniciar el proceso.';
         $step = 'email';
     } else {
@@ -186,7 +202,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
         $st->execute([$usuarioId]);
         $tokenRow = $st->fetch();
 
+        error_log("[RECUPERAR] Token encontrado: " . ($tokenRow ? 'SI' : 'NO'));
+        if ($tokenRow) {
+            $verifyResult = password_verify($codigoUsuario, $tokenRow['token']);
+            error_log("[RECUPERAR] password_verify('$codigoUsuario', token): " . ($verifyResult ? 'TRUE' : 'FALSE'));
+        } else {
+            error_log("[RECUPERAR] No hay tokens válidos para usuario $usuarioId");
+        }
+
         if (!$tokenRow || !password_verify($codigoUsuario, $tokenRow['token'])) {
+            error_log("[RECUPERAR] Error: código incorrecto o expirado");
             $error = 'Código incorrecto o expirado.';
             $step = 'codigo';
         } else {
@@ -195,6 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
 
             // Guardar en sesión para el siguiente paso
             $_SESSION['reset_codigo_validado'] = true;
+            error_log("[RECUPERAR] Éxito, redirigiendo a nueva contraseña");
             redirect('/recuperar.php?step=nueva');
         }
     }
@@ -349,13 +375,16 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   margin: 1.5rem 0;
 }
 .codigo-input {
-  width: 50px; height: 60px;
+  width: 60px !important;
+  height: 64px;
   text-align: center;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
   border: 2px solid #e5e7eb;
   border-radius: 12px;
   transition: all 0.2s;
+  padding: 0 !important;
+  margin: 0;
 }
 .codigo-input:focus {
   border-color: #C9A84C;
@@ -513,6 +542,14 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
 
   <?php if ($error): ?>
   <div class="alert">⚠ <?= e($error) ?></div>
+  <?php endif; ?>
+
+  <!-- DEBUG: Solo para desarrollo -->
+  <?php if (defined('DEBUG') && DEBUG && isset($_SESSION['reset_usuario_id'])): ?>
+  <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985;">
+    <strong>DEBUG:</strong> Usuario ID: <?= (int)$_SESSION['reset_usuario_id'] ?><br>
+    Email: <?= e($_SESSION['reset_email'] ?? '') ?>
+  </div>
   <?php endif; ?>
 
   <div style="text-align: center;">
