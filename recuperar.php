@@ -606,11 +606,7 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
     </div>
 
     <button type="submit" class="btn" id="btnVerificar" disabled>
-      Verificar Código
-    </button>
-    <!-- Botón manual por si falla el auto-submit -->
-    <button type="button" class="btn btn-secondary mt-2" id="btnVerificarManual" style="display:none;">
-      Verificar Manualmente
+      ✓ Verificar Código
     </button>
   </form>
 
@@ -681,10 +677,12 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
 // ─── Manejo del código de 6 dígitos ──────────────────────────
 const inputs = document.querySelectorAll('.codigo-input');
 const btnVerificar = document.getElementById('btnVerificar');
-const btnVerificarManual = document.getElementById('btnVerificarManual');
 const form = document.getElementById('codigoForm');
 
-let submitAttempted = false;
+// Auto-focus al primer input
+if (inputs.length > 0) {
+  inputs[0].focus();
+}
 
 inputs.forEach((input, index) => {
   input.addEventListener('input', (e) => {
@@ -693,23 +691,16 @@ inputs.forEach((input, index) => {
 
     if (value) {
       e.target.classList.add('filled');
-      if (index < 5) inputs[index + 1].focus();
+      if (index < 5 && value) {
+        inputs[index + 1].focus();
+      }
     } else {
       e.target.classList.remove('filled');
     }
 
-    // Verificar si todos están llenos
+    // Habilitar botón cuando todos están llenos
     const allFilled = Array.from(inputs).every(i => i.value.length === 1);
     btnVerificar.disabled = !allFilled;
-
-    if (allFilled && !submitAttempted) {
-      submitAttempted = true;
-      // Pequeño delay para asegurar que el último input se renderizó
-      setTimeout(() => {
-        console.log('[RECUPERAR] Auto-submit con código:', Array.from(inputs).map(i => i.value).join(''));
-        form.submit();
-      }, 300);
-    }
   });
 
   input.addEventListener('keydown', (e) => {
@@ -735,25 +726,10 @@ inputs.forEach((input, index) => {
 
     const allFilled = Array.from(inputs).every(i => i.value.length === 1);
     if (allFilled) {
-      submitAttempted = true;
-      setTimeout(() => form.submit(), 200);
+      btnVerificar.disabled = false;
     }
   });
 });
-
-// Botón manual por si falla el auto-submit
-if (btnVerificarManual) {
-  btnVerificarManual.addEventListener('click', () => {
-    console.log('[RECUPERAR] Submit manual');
-    form.submit();
-  });
-  // Mostrar botón manual si el auto-submit falla después de 2 segundos
-  setTimeout(() => {
-    if (submitAttempted && document.readyState === 'complete') {
-      btnVerificarManual.style.display = 'inline-block';
-    }
-  }, 2000);
-}
 
 // ─── Countdown ───────────────────────────────────────────────
 let timeLeft = 600;
