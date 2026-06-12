@@ -1,9 +1,4 @@
 <?php
-// Desactivar OPcache para este archivo (debug)
-if (function_exists('opcache_reset')) {
-    @opcache_invalidate(__FILE__, true);
-}
-
 session_start();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/functions.php';
@@ -16,20 +11,10 @@ if (!empty($_SESSION['usuario_id'])) {
 }
 
 $db = getDB();
-// Leer step: POST tiene prioridad sobre GET para formularios
-$stepFromGet = get('step', 'email');
-$stepFromPost = $_POST['step'] ?? null;
-$isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
-$hasPostStep = isset($_POST['step']);
 
-error_log("[RECUPERAR] GET step: $stepFromGet");
-error_log("[RECUPERAR] POST step: $stepFromPost");
-error_log("[RECUPERAR] Is POST: " . ($isPost ? 'SI' : 'NO'));
-error_log("[RECUPERAR] Has POST step: " . ($hasPostStep ? 'SI' : 'NO'));
-
-$step = $isPost && $hasPostStep ? $stepFromPost : $stepFromGet;
-
-error_log("[RECUPERAR] Step final: $step");
+// Leer step DIRECTO de $_POST si existe, sino de $_GET
+// Sin funciones ni variables intermedias para evitar OPcache
+$step = isset($_POST['step']) ? $_POST['step'] : (isset($_GET['step']) ? $_GET['step'] : 'email');
 
 $email = '';
 $error = '';
@@ -582,27 +567,11 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   </div>
   <?php endif; ?>
 
-  <!-- DEBUG: Información visible siempre en desarrollo -->
+  <!-- DEBUG -->
   <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
     <strong>DEBUG:</strong><br>
-    <br>
-    <strong>Step (GET):</strong> <?= e($stepFromGet) ?><br>
-    <strong>Step (POST):</strong> <?= e($stepFromPost ?? 'N/A') ?><br>
-    <strong>Step FINAL:</strong> <?= e($step) ?><br>
-    <strong>REQUEST_METHOD:</strong> <?= e($_SERVER['REQUEST_METHOD']) ?><br>
-    <br>
-    <strong>Sesión:</strong><br>
-    Usuario ID: <?= isset($_SESSION['reset_usuario_id']) ? (int)$_SESSION['reset_usuario_id'] : 'NO' ?><br>
-    Email: <?= e($_SESSION['reset_email'] ?? 'NO') ?><br>
-    <br>
-    <strong>POST Raw:</strong><br>
-    <?php if ($debugPOSTRaw): ?>
-    <?= e(print_r($debugPOSTRaw, true)) ?>
-    <?php else: ?>
-    <em>No es POST (primera carga GET)</em>
-    <?php endif; ?>
-    <br>
-    <strong>Token en BD:</strong><br>
+    Step: <?= e($step) ?><br>
+    Token en BD:
     <?php
     if (!empty($_SESSION['reset_usuario_id'])) {
         $stDebug = $db->prepare("SELECT id, expira_en, usado FROM password_reset_tokens WHERE usuario_id = ? AND usado = 0 ORDER BY creado_en DESC LIMIT 1");
