@@ -16,6 +16,10 @@ $email = '';
 $error = '';
 $msg = '';
 
+error_log("[RECUPERAR] Step inicial: $step");
+error_log("[RECUPERAR] REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
+error_log("[RECUPERAR] GET: " . print_r($_GET, true));
+
 // ── AJAX: Reenviar código ────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && get('action') === 'reenviar') {
     header('Content-Type: application/json');
@@ -566,6 +570,9 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   <!-- DEBUG: Información visible siempre en desarrollo -->
   <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
     <strong>DEBUG:</strong><br>
+    <br>
+    <strong>Step:</strong> <?= e($step) ?><br>
+    <strong>REQUEST_METHOD:</strong> <?= e($_SERVER['REQUEST_METHOD']) ?><br>
     <br>
     <strong>Sesión:</strong><br>
     Usuario ID: <?= isset($_SESSION['reset_usuario_id']) ? (int)$_SESSION['reset_usuario_id'] : 'NO' ?><br>
