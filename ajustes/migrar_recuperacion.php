@@ -14,12 +14,10 @@ $hecho = false;
 $error = '';
 
 try {
-    // Verificar si ya existe
+    // 1. Verificar si existe la tabla
     $st = $db->query("SHOW TABLES LIKE 'password_reset_tokens'");
-    if ($st->fetch()) {
-        $hecho = true;
-        $error = 'La tabla ya existe. No es necesaria la migración.';
-    } else {
+    if (!$st->fetch()) {
+        // Crear tabla si no existe
         $db->exec("CREATE TABLE password_reset_tokens (
             id           INT AUTO_INCREMENT PRIMARY KEY,
             usuario_id   INT NOT NULL,
@@ -31,6 +29,22 @@ try {
             INDEX idx_expira (expira_en)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $hecho = true;
+        $msg = 'Tabla creada correctamente.';
+    } else {
+        // 2. Verificar tamaño de columna token
+        $st = $db->query("SHOW COLUMNS FROM password_reset_tokens LIKE 'token'");
+        $col = $st->fetch();
+        $tipo = $col['Type'];
+
+        if (strpos($tipo, 'varchar(6)') !== false) {
+            // Ampliar columna
+            $db->exec("ALTER TABLE password_reset_tokens MODIFY COLUMN token VARCHAR(255) NOT NULL");
+            $hecho = true;
+            $msg = "Columna token ampliada de $tipo a VARCHAR(255).";
+        } else {
+            $hecho = true;
+            $info = "La columna token ya tiene el tamaño correcto: $tipo";
+        }
     }
 } catch (Exception $e) {
     $error = 'Error: ' . $e->getMessage();
