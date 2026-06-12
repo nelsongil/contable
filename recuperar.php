@@ -547,7 +547,9 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   </div>
 
   <?php if ($error): ?>
-  <div class="alert">⚠ <?= e($error) ?></div>
+  <div class="alert" style="background: #fef2f2; border-color: #ef4444; color: #991b1b;">
+    <strong>⚠ ERROR:</strong> <?= e($error) ?>
+  </div>
   <?php endif; ?>
 
   <!-- DEBUG: Información visible siempre en desarrollo -->
@@ -558,7 +560,23 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
     <?php if (isset($debugCodigo)): ?>
     Código recibido (POST): <?= e(print_r($debugPost, true)) ?><br>
     Código unido: <strong><?= e($debugCodigo) ?></strong> (long: <?= strlen($debugCodigo) ?>)<br>
+    <?php else: ?>
+    <em>No hay código en POST (primera carga o error antes de validar)</em>
     <?php endif; ?>
+    <br>
+    <strong>Token en BD:</strong>
+    <?php
+    if (!empty($_SESSION['reset_usuario_id'])) {
+        $stDebug = $db->prepare("SELECT id, expira_en, usado FROM password_reset_tokens WHERE usuario_id = ? AND usado = 0 ORDER BY creado_en DESC LIMIT 1");
+        $stDebug->execute([$_SESSION['reset_usuario_id']]);
+        $tokenDebug = $stDebug->fetch();
+        if ($tokenDebug) {
+            echo "✅ Token existe, expira: " . e($tokenDebug['expira_en']) . ", usado: " . (int)$tokenDebug['usado'];
+        } else {
+            echo "❌ No hay tokens válidos en BD";
+        }
+    }
+    ?>
   </div>
 
   <div style="text-align: center;">
