@@ -211,9 +211,11 @@ function makeSortable(table) {
 </script>
 
 <script>
-// ─── PWA: Registro del Service Worker ───
+// ─── PWA: Desregistrar Service Worker (causa problemas en producción) ───
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+        registrations.forEach(reg => reg.unregister());
+    }).catch(() => {});
 }
 
 // ─── Interceptor global para errores de sesión en AJAX ───
