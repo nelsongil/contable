@@ -13,9 +13,10 @@ $error = '';
 $msg   = '';
 
 switch (get('reason')) {
-    case 'timeout':   $error = 'La sesión se ha cerrado por inactividad. Vuelva a introducir sus datos.'; break;
-    case 'logout':    $msg   = 'Sesión cerrada correctamente.'; break;
-    case 'inactivo':  $error = 'Tu cuenta está desactivada. Contacta con el administrador.'; break;
+    case 'timeout':        $error = 'La sesión se ha cerrado por inactividad. Vuelva a introducir sus datos.'; break;
+    case 'logout':         $msg   = 'Sesión cerrada correctamente.'; break;
+    case 'inactivo':       $error = 'Tu cuenta está desactivada. Contacta con el administrador.'; break;
+    case 'password_reset': $msg   = 'Contraseña restablecida correctamente. Inicia sesión con tu nueva contraseña.'; break;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -203,6 +204,11 @@ input:focus { border-color: #3E7B64; box-shadow: 0 0 0 3px rgba(62,123,100,.15);
       </div>
       <button type="submit" class="btn">Entrar →</button>
     </form>
+    <div style="text-align: center; margin-top: 1rem;">
+      <a href="/recuperar.php" style="color: #C9A84C; text-decoration: none; font-size: 0.85rem; font-weight: 600;">
+        ¿Olvidaste tu contraseña?
+      </a>
+    </div>
     <div class="footer-note">Libro Contable Autónomo · <?= date('Y') ?></div>
   </div>
 </div>

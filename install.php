@@ -202,6 +202,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             $st->execute([$adminNombre, $d['admin_email'], $hash]);
 
+            // 5. Crear tabla password_reset_tokens (recuperación de contraseña)
+            $pdo->exec("CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id           INT AUTO_INCREMENT PRIMARY KEY,
+                usuario_id   INT NOT NULL,
+                token        VARCHAR(255) NOT NULL,
+                expira_en    DATETIME NOT NULL,
+                usado        TINYINT(1) DEFAULT 0,
+                creado_en    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                INDEX idx_expira (expira_en)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
             // 5. Generar SECRET_KEY aleatoria
             $secret = bin2hex(random_bytes(32));
 

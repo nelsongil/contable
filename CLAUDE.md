@@ -26,6 +26,7 @@ Cuando el usuario pida hacer un commit (con cualquier frase como "haz el commit"
 | PHP (producción) | **8.5** |
 | Base de datos | **MariaDB 10.11.15-MariaDB-cll-lve** |
 | Entorno local | **Laragon** (Apache + PHP 8.5 + MariaDB) |
+| **PHP PATH local** | `C:\laragon\bin\php\php-8.5.0-Win32-vs17-x64\php.exe` |
 | Indentación | **4 espacios** (nunca tabs) |
 | Line endings | **LF** (Unix) — nunca CRLF |
 | Encoding | UTF-8 sin BOM — obligatorio en todos los archivos |
@@ -38,14 +39,24 @@ Cuando el usuario pida hacer un commit (con cualquier frase como "haz el commit"
 
 No existen herramientas de compilación ni gestores de paquetes. El desarrollo solo requiere un servidor web con PHP 8.5 y MariaDB.
 
+**En local (Laragon en Windows):**
+```powershell
+# PHP directo desde Laragon
+& "C:\laragon\bin\php\php-8.5.0-Win32-vs17-x64\php.exe" -l includes/functions.php
+
+# O si PHP está en PATH
+php -l includes/functions.php
+```
+
+**En servidor (Linux):**
 ```bash
 # Verificar sintaxis PHP de un archivo
 php -l includes/functions.php
 
-# Verificar codificación del archivo (DEBE ser charset=utf-8, nunca utf-16)
+# Verificar codificación (DEBE ser charset=utf-8)
 file -i includes/header.php
 
-# Comprobar todos los archivos PHP por errores de sintaxis
+# Comprobar todos los archivos PHP
 find . -name "*.php" -not -path "./vendor/*" | xargs -I{} php -l {}
 ```
 
@@ -185,3 +196,53 @@ Para referencia más detallada, el repositorio incluye:
 - `DATABASE.md` — esquema con ERD (Mermaid)
 - `SECURITY.md` — checklist de seguridad y prácticas prohibidas
 - `CHANGELOG.md` — historial de versiones (v1.0 → v1.3)
+
+---
+
+## Notas del Desarrollo (Información Local)
+
+### Rutas del Entorno Local
+
+| Recurso | Ruta / Valor |
+|---------|--------------|
+| **PHP en Laragon** | `C:\laragon\bin\php\php-8.5.0-Win32-vs17-x64\php.exe` |
+| Proyecto | `C:\Users\Nelson\Documents\MEGAsync\desarrollo\contable` |
+| Base de datos | `nelsongi_contable` en `localhost` |
+| DB usuario | `root` (sin contraseña en local) |
+
+### Comandos Útiles en Local (PowerShell)
+
+```powershell
+# PHP directo desde Laragon
+& "C:\laragon\bin\php\php-8.5.0-Win32-vs17-x64\php.exe" -l archivo.php
+
+# Buscar PHP en Laragon (si la ruta cambia)
+Get-ChildItem -Path 'C:\laragon\bin\php' -Filter 'php.exe' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+```
+
+### Email / SMTP
+
+La aplicación usa `mail()` nativo de PHP. En local (Laragon) no hay SMTP configurado por defecto.
+Para recuperación de contraseña y otros emails:
+- Configurar `sendmail_path` en el `php.ini` de Laragon, o
+- Usar un servidor SMTP real (Gmail SMTP, Mailgun, etc.)
+- En producción, el servidor debe tener MTA configurado
+
+### Sistema de Recuperación de Contraseña (v2.1.11+)
+
+- **Tabla nueva**: `password_reset_tokens`
+- **Migración**: `/ajustes/migrar_recuperacion.php` (solo admin)
+- **Flujo**: Email → Código 6 dígitos (10 min) → Nueva contraseña
+- **Archivo principal**: `recuperar.php`
+- **Email**: Usa `mail()` nativo — requiere SMTP configurado
+
+### Interceptador AJAX para Sesión
+
+`includes/footer.php` incluye un interceptor global de `fetch()` que detecta errores de sesión en respuestas JSON y redirige automáticamente a `/login.php?reason=timeout`.
+
+### Archivos que NO se deben commitear
+
+- `config/database.php` (credenciales locales)
+- `config/.installed` (lock del instalador)
+- `*.zip` (generado automáticamente por el CI)
+- `.claude/` (configuración local del agente)
