@@ -163,9 +163,21 @@ body{font-family:'Inter',Arial,sans-serif;background:#f4f7f5;padding:20px}
     }
 }
 
+// ── Debug: Ver TODO el POST ──────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    error_log("[RECUPERAR] POST completo: " . print_r($_POST, true));
+    $debugPOSTRaw = $_POST;
+} else {
+    $debugPOSTRaw = null;
+}
+
 // ── Paso 2: Verificar código ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     $codigoArr = $_POST['codigo'] ?? [];
+
+    error_log("[RECUPERAR] codigo[] recibido: " . print_r($codigoArr, true));
+    error_log("[RECUPERAR] codigo[] es array: " . (is_array($codigoArr) ? 'SI' : 'NO'));
+    error_log("[RECUPERAR] codigo[] count: " . count($codigoArr));
 
     // Unir los 6 dígitos del array, filtrando solo números
     $codigoUsuario = '';
@@ -177,7 +189,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     $codigoUsuario = substr($codigoUsuario, 0, 6); // Asegurar máximo 6 dígitos
 
     // Debug: log del código recibido
-    error_log("[RECUPERAR] Códigos recibidos: " . print_r($codigoArr, true));
     error_log("[RECUPERAR] Código unido: '$codigoUsuario'");
     error_log("[RECUPERAR] Longitud: " . strlen($codigoUsuario));
     error_log("[RECUPERAR] Usuario ID en sesión: " . ($_SESSION['reset_usuario_id'] ?? 'NO'));
@@ -553,18 +564,21 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   <?php endif; ?>
 
   <!-- DEBUG: Información visible siempre en desarrollo -->
-  <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.8rem;">
+  <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
     <strong>DEBUG:</strong><br>
-    Usuario ID en sesión: <?= isset($_SESSION['reset_usuario_id']) ? (int)$_SESSION['reset_usuario_id'] : 'NO' ?><br>
-    Email en sesión: <?= e($_SESSION['reset_email'] ?? 'NO') ?><br>
-    <?php if (isset($debugCodigo)): ?>
-    Código recibido (POST): <?= e(print_r($debugPost, true)) ?><br>
-    Código unido: <strong><?= e($debugCodigo) ?></strong> (long: <?= strlen($debugCodigo) ?>)<br>
+    <br>
+    <strong>Sesión:</strong><br>
+    Usuario ID: <?= isset($_SESSION['reset_usuario_id']) ? (int)$_SESSION['reset_usuario_id'] : 'NO' ?><br>
+    Email: <?= e($_SESSION['reset_email'] ?? 'NO') ?><br>
+    <br>
+    <strong>POST Raw:</strong><br>
+    <?php if ($debugPOSTRaw): ?>
+    <?= e(print_r($debugPOSTRaw, true)) ?>
     <?php else: ?>
-    <em>No hay código en POST (primera carga o error antes de validar)</em>
+    <em>No es POST (primera carga GET)</em>
     <?php endif; ?>
     <br>
-    <strong>Token en BD:</strong>
+    <strong>Token en BD:</strong><br>
     <?php
     if (!empty($_SESSION['reset_usuario_id'])) {
         $stDebug = $db->prepare("SELECT id, expira_en, usado FROM password_reset_tokens WHERE usuario_id = ? AND usado = 0 ORDER BY creado_en DESC LIMIT 1");
