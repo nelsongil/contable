@@ -14,7 +14,9 @@ $db = getDB();
 
 // Leer step DIRECTO de $_POST si existe, sino de $_GET
 // Sin funciones ni variables intermedias para evitar OPcache
+// Forzar lectura de POST - debug con timestamp
 $step = isset($_POST['step']) ? $_POST['step'] : (isset($_GET['step']) ? $_GET['step'] : 'email');
+$DEBUG_TIMESTAMP = '2026-06-12-15-30'; // MARCADOR DE VERSION
 
 $email = '';
 $error = '';
@@ -569,7 +571,7 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
 
   <!-- DEBUG -->
   <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
-    <strong>DEBUG:</strong><br>
+    <strong>DEBUG v<?= $DEBUG_TIMESTAMP ?>:</strong><br>
     Step: <?= e($step) ?><br>
     Token en BD:
     <?php
