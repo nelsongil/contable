@@ -12,11 +12,8 @@ if (!empty($_SESSION['usuario_id'])) {
 
 $db = getDB();
 
-// Leer step DIRECTO de $_POST si existe, sino de $_GET
-// Sin funciones ni variables intermedias para evitar OPcache
-// Forzar lectura de POST - debug con timestamp
+// Leer step: POST tiene prioridad sobre GET
 $step = isset($_POST['step']) ? $_POST['step'] : (isset($_GET['step']) ? $_GET['step'] : 'email');
-$DEBUG_TIMESTAMP = '2026-06-12-15-30'; // MARCADOR DE VERSION
 
 $email = '';
 $error = '';
@@ -113,19 +110,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'email') {
             $expira = date('Y-m-d H:i:s', strtotime('+10 minutes'));
             $tokenHash = password_hash($codigo, PASSWORD_DEFAULT);
 
-            // Guardar código en sesión para debug
-            $_SESSION['reset_debug_codigo'] = $codigo;
-
-            error_log("[RECUPERAR] Código generado: $codigo");
-            error_log("[RECUPERAR] Hash: $tokenHash");
-
             // Invalidar tokens anteriores
             $db->prepare("UPDATE password_reset_tokens SET usado = 1 WHERE usuario_id = ?")->execute([$usuario['id']]);
 
             $st = $db->prepare("INSERT INTO password_reset_tokens (usuario_id, token, expira_en) VALUES (?, ?, ?)");
             $st->execute([$usuario['id'], $tokenHash, $expira]);
-
-            error_log("[RECUPERAR] Token insertado en BD para usuario {$usuario['id']}");
 
             $asunto = 'Recuperación de contraseña - ' . getConfig('empresa_sociedad', EMPRESA_SOCIEDAD);
             $cuerpo = "
@@ -177,29 +166,9 @@ body{font-family:'Inter',Arial,sans-serif;background:#f4f7f5;padding:20px}
     }
 }
 
-// ── Debug: Ver TODO el POST ──────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    error_log("[RECUPERAR] POST completo: " . print_r($_POST, true));
-    $debugPOSTRaw = $_POST;
-} else {
-    $debugPOSTRaw = null;
-}
-
-// ── Debug: Ver TODO el POST ──────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    error_log("[RECUPERAR] POST completo: " . print_r($_POST, true));
-    $debugPOSTRaw = $_POST;
-} else {
-    $debugPOSTRaw = null;
-}
-
 // ── Paso 2: Verificar código ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
     $codigoArr = $_POST['codigo'] ?? [];
-
-    error_log("[RECUPERAR] codigo[] recibido: " . print_r($codigoArr, true));
-    error_log("[RECUPERAR] codigo[] es array: " . (is_array($codigoArr) ? 'SI' : 'NO'));
-    error_log("[RECUPERAR] codigo[] count: " . count($codigoArr));
 
     // Unir los 6 dígitos del array, filtrando solo números
     $codigoUsuario = '';
@@ -208,48 +177,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 'verificar_codigo') {
             $codigoUsuario .= $valor;
         }
     }
-    $codigoUsuario = substr($codigoUsuario, 0, 6); // Asegurar máximo 6 dígitos
-
-    error_log("[RECUPERAR] Código unido: '$codigoUsuario'");
-    error_log("[RECUPERAR] Longitud: " . strlen($codigoUsuario));
-
-    // Guardar info para debug en pantalla
-    $debugPost = $codigoArr;
-    $debugCodigo = $codigoUsuario;
-    $debugTokenUsado = null;
-    $debugVerifyResult = null;
+    $codigoUsuario = substr($codigoUsuario, 0, 6);
 
     if (strlen($codigoUsuario) !== 6) {
-        $error = 'El código debe tener 6 dígitos. Recibido: "' . e($codigoUsuario) . '" (long: ' . strlen($codigoUsuario) . ')';
+        $error = 'El código debe tener 6 dígitos.';
         $step = 'codigo';
     } elseif (empty($_SESSION['reset_usuario_id'])) {
-        $error = 'Sesión expirada.';
+        $error = 'Sesión expirada. Vuelve a iniciar el proceso.';
         $step = 'email';
     } else {
         $usuarioId = $_SESSION['reset_usuario_id'];
 
+        // Buscar tokens no usados y no expirados
         $st = $db->prepare(
-            "SELECT id, token, expira_en, usado FROM password_reset_tokens
+            "SELECT id, token FROM password_reset_tokens
              WHERE usuario_id = ? AND usado = 0 AND expira_en > NOW()
              ORDER BY creado_en DESC LIMIT 1"
         );
         $st->execute([$usuarioId]);
         $tokenRow = $st->fetch();
 
-        if ($tokenRow) {
-            $verifyResult = password_verify($codigoUsuario, $tokenRow['token']);
-            $debugTokenUsado = substr($tokenRow['token'], 0, 40) . '...';
-            $debugVerifyResult = $verifyResult ? 'TRUE' : 'FALSE';
-
-            error_log("[RECUPERAR] password_verify('$codigoUsuario'): " . ($verifyResult ? 'TRUE' : 'FALSE'));
-            error_log("[RECUPERAR] Token hash: " . $tokenRow['token']);
-        }
-
-        if (!$tokenRow || !$verifyResult) {
+        if (!$tokenRow || !password_verify($codigoUsuario, $tokenRow['token'])) {
             $error = 'Código incorrecto o expirado.';
             $step = 'codigo';
         } else {
+            // Marcar como usado
             $db->prepare("UPDATE password_reset_tokens SET usado = 1 WHERE id = ?")->execute([$tokenRow['id']]);
+
+            // Guardar en sesión para el siguiente paso
             $_SESSION['reset_codigo_validado'] = true;
             redirect('/recuperar.php?step=nueva');
         }
@@ -518,6 +473,27 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   margin-top: 0.25rem;
   color: #6b7280;
 }
+
+/* Toggle password */
+.password-toggle {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.25rem;
+  color: #6b7280;
+  padding: 0;
+  z-index: 10;
+}
+.password-toggle:hover {
+  color: #C9A84C;
+}
+.password-input-container {
+  position: relative;
+}
 </style>
 </head>
 <body>
@@ -571,36 +547,8 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
   </div>
 
   <?php if ($error): ?>
-  <div class="alert" style="background: #fef2f2; border-color: #ef4444; color: #991b1b;">
-    <strong>⚠ ERROR:</strong> <?= e($error) ?>
-  </div>
+  <div class="alert">⚠ <?= e($error) ?></div>
   <?php endif; ?>
-
-  <!-- DEBUG -->
-  <div class="alert" style="background: #e0f2fe; border-color: #7dd3fc; color: #075985; font-size: 0.75rem; word-break: break-all;">
-    <strong>DEBUG v<?= $DEBUG_TIMESTAMP ?>:</strong><br>
-    <br>
-    <strong>Código en sesión:</strong> <?= e($_SESSION['reset_debug_codigo'] ?? 'NO') ?><br>
-    <?php if (isset($debugCodigo)): ?>
-    <strong>Código recibido:</strong> <?= e($debugCodigo) ?> (long: <?= strlen($debugCodigo) ?>)<br>
-    <strong>Token hash (BD):</strong> <?= e($debugTokenUsado ?? 'N/A') ?><br>
-    <strong>password_verify:</strong> <?= e($debugVerifyResult ?? 'N/A') ?><br>
-    <?php endif; ?>
-    <br>
-    <strong>Token en BD:</strong>
-    <?php
-    if (!empty($_SESSION['reset_usuario_id'])) {
-        $stDebug = $db->prepare("SELECT id, expira_en, usado FROM password_reset_tokens WHERE usuario_id = ? AND usado = 0 ORDER BY creado_en DESC LIMIT 1");
-        $stDebug->execute([$_SESSION['reset_usuario_id']]);
-        $tokenDebug = $stDebug->fetch();
-        if ($tokenDebug) {
-            echo "✅ Token existe, expira: " . e($tokenDebug['expira_en']) . ", usado: " . (int)$tokenDebug['usado'];
-        } else {
-            echo "❌ No hay tokens válidos en BD";
-        }
-    }
-    ?>
-  </div>
 
   <div style="text-align: center;">
     <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 0.5rem;">
@@ -665,9 +613,14 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
 
     <div>
       <label for="password">🔑 Nueva contraseña</label>
-      <input type="password" id="password" name="password" required
-             autocomplete="new-password" minlength="8"
-             placeholder="Mínimo 8 caracteres">
+      <div class="password-input-container">
+        <input type="password" id="password" name="password" required
+               autocomplete="new-password" minlength="8"
+               placeholder="Mínimo 8 caracteres">
+        <button type="button" class="password-toggle" onclick="togglePassword('password', this)" tabindex="-1">
+          👁
+        </button>
+      </div>
       <div class="password-strength">
         <div class="password-strength-bar" id="strengthBar"></div>
       </div>
@@ -676,9 +629,14 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
 
     <div style="margin-top: 1rem;">
       <label for="password_confirm">🔒 Confirmar contraseña</label>
-      <input type="password" id="password_confirm" name="password_confirm" required
-             autocomplete="new-password"
-             placeholder="Repite la contraseña">
+      <div class="password-input-container">
+        <input type="password" id="password_confirm" name="password_confirm" required
+               autocomplete="new-password"
+               placeholder="Repite la contraseña">
+        <button type="button" class="password-toggle" onclick="togglePassword('password_confirm', this)" tabindex="-1">
+          👁
+        </button>
+      </div>
     </div>
 
     <button type="submit" class="btn" id="btnGuardar" disabled>
@@ -700,7 +658,6 @@ input:focus { border-color: #C9A84C; box-shadow: 0 0 0 4px rgba(201,168,76,.15);
 // ─── Manejo del código de 6 dígitos ──────────────────────────
 const inputs = document.querySelectorAll('.codigo-input');
 const btnVerificar = document.getElementById('btnVerificar');
-const form = document.getElementById('codigoForm');
 
 // Auto-focus al primer input
 if (inputs.length > 0) {
@@ -809,6 +766,18 @@ function reenviarCodigo() {
 }
 
 <?php elseif ($step === 'nueva'): ?>
+// ─── Toggle password visibility ──────────────────────────────
+function togglePassword(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    input.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
 // ─── Password strength meter ─────────────────────────────────
 const passwordInput = document.getElementById('password');
 const strengthBar = document.getElementById('strengthBar');
