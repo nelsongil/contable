@@ -2,6 +2,13 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.32] - 2026-06-15
+
+### Fixed
+- **facturas/nueva.php**: corregido el INSERT de `facturas_emitidas` que tenía 18 valores en lugar de 17, causando error `Column count doesn't match value count` al crear facturas nuevas.
+
+---
+
 ## [2.1.31] - 2026-06-15
 
 ### Fixed

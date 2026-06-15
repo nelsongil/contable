@@ -110,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                               (numero,fecha,fecha_vencimiento,cliente_id,cliente_nombre,cliente_nif,
                                base_imponible,porcentaje_iva,cuota_iva,porcentaje_irpf,cuota_irpf,
                                total,liquido,notas,estado,trimestre,trimestre_manual)
-                              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                              VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
                    ->execute([$numero, $fecha, $vencimiento ?: null, $clienteId ?: null,
                               $cliente['nombre'] ?? post('cliente_nombre'),
                               $cliente['nif'] ?? '',
@@ -145,10 +145,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/facturas/ver.php?id=' . $fid);
         } catch (PDOException $e) {
             if ($db->inTransaction()) $db->rollBack();
+            error_log("Error factura: " . $e->getMessage() . " | Code: " . $e->getCode());
             if ($e->getCode() == 23000) {
                 $error = "Error: El número de factura ya existe.";
             } else {
-                $error = "Error al guardar la factura. Inténtalo de nuevo.";
+                $error = "Error al guardar: " . $e->getMessage();
             }
         }
     }
