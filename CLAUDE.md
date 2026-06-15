@@ -230,11 +230,47 @@ Para recuperación de contraseña y otros emails:
 
 ### Sistema de Recuperación de Contraseña (v2.1.11+)
 
-- **Tabla nueva**: `password_reset_tokens`
-- **Migración**: `/ajustes/migrar_recuperacion.php` (solo admin)
-- **Flujo**: Email → Código 6 dígitos (10 min) → Nueva contraseña
-- **Archivo principal**: `recuperar.php`
-- **Email**: Usa `mail()` nativo — requiere SMTP configurado
+**Flujo completo**: Email → Código 6 dígitos (10 min) → Verificar código → Nueva contraseña
+
+**Archivos**:
+- `recuperar.php` — UI animada de 3 pasos con toggle de visibilidad y medidor de fortaleza
+- `ajustes/migrar_recuperacion.php` — migración para instalaciones existentes (solo admin)
+- `login.php` — enlace "¿Olvidaste tu contraseña?" y mensaje post-recuperación
+
+**Base de datos**:
+```sql
+CREATE TABLE password_reset_tokens (
+    id        INT AUTO_INCREMENT PRIMARY KEY,
+    usuario_id INT NOT NULL,
+    token     VARCHAR(255) NOT NULL,  -- bcrypt hash (NO truncar a VARCHAR(6))
+    expira_en DATETIME NOT NULL,
+    usado     TINYINT(1) DEFAULT 0,
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    INDEX idx_expira (expira_en)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+**⚠️ Bug crítico conocido**: 
+- `password_reset_tokens.token` debe ser `VARCHAR(255)`. Si es `VARCHAR(6)`, el bcrypt hash (60 chars) se trunca y `password_verify()` siempre falla.
+- Fix: `ALTER TABLE password_reset_tokens MODIFY COLUMN token VARCHAR(255) NOT NULL;`
+
+**⚠️ OPcache en shared hosting**:
+- El parámetro `step` puede leerse obsoleto si OPcache está activo.
+- **Solución**: Leer directamente de superglobales, NO usar `get()`/`post()`:
+  ```php
+  $step = isset($_POST['step']) ? $_POST['step'] : (isset($_GET['step']) ? $_GET['step'] : 'email');
+  ```
+
+**Características UI**:
+- Inputs individuales para código de 6 dígitos con auto-focus y auto-submit
+- Countdown de 10 minutos con aviso urgente al final
+- Botón reenviar código (genera nuevo token)
+- Toggle 👁/🙈 para mostrar/ocultar contraseña
+- Medidor de fortaleza en tiempo real (débil/media/fuerte)
+- Validación de coincidencia de contraseñas
+
+**Email**: Usa `mail()` nativo — requiere SMTP configurado en producción.
 
 ### Interceptador AJAX para Sesión
 

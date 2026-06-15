@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS facturas_emitidas (
     notas           TEXT,
     estado          ENUM('borrador','emitida','pagada','cancelada') DEFAULT 'emitida',
     trimestre       TINYINT(1),
+    trimestre_manual TINYINT(1) DEFAULT NULL,
     creado_en       TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -91,6 +92,7 @@ CREATE TABLE IF NOT EXISTS facturas_recibidas (
     descripcion      VARCHAR(300),
     notas            TEXT,
     trimestre        TINYINT(1),
+    trimestre_manual TINYINT(1) DEFAULT NULL,
     creado_en        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (proveedor_id) REFERENCES proveedores(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

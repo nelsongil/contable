@@ -2,6 +2,16 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo siguiendo el formato de [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.31] - 2026-06-15
+
+### Fixed
+- **Migración de `trimestre_manual`**: añadida migración idempotente para garantizar que las columnas `trimestre_manual` existan en `facturas_emitidas` y `facturas_recibidas` en instalaciones donde la migración de v2.1.0 no se ejecutó correctamente.
+
+### Database
+- Nueva migración `2026-06-15_add_trimestre_manual.sql`: añade las columnas `trimestre_manual` con `IF NOT EXISTS` para evitar errores en instalaciones ya actualizadas.
+
+---
+
 ## [2.1.0] - 2026-05-31
 
 ### Added
