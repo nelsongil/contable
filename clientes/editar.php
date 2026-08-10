@@ -50,7 +50,14 @@ require_once __DIR__ . '/../includes/header.php';
         </div>
         <div class="col-md-4">
           <label class="form-label">NIF / CIF / DNI</label>
-          <input type="text" name="nif" class="form-control" value="<?= e($c['nif'] ?? '') ?>">
+          <input type="text" name="nif" id="nif" class="form-control" value="<?= e($c['nif'] ?? '') ?>">
+        </div>
+        <div class="col-12">
+          <div id="nifWarning" class="alert alert-warning d-none py-2" style="font-size:.875rem">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            Ya existe un cliente con este NIF: <strong id="nifWarningNombre"></strong>.
+            <a href="/clientes/editar.php" id="nifWarningLink" target="_blank">Ver cliente</a>
+          </div>
         </div>
         <div class="col-12">
           <label class="form-label">Dirección</label>
@@ -89,5 +96,33 @@ require_once __DIR__ . '/../includes/header.php';
     </form>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const nifInput = document.getElementById('nif');
+    const nifWarning = document.getElementById('nifWarning');
+    const nifWarningNombre = document.getElementById('nifWarningNombre');
+    const nifWarningLink = document.getElementById('nifWarningLink');
+    if (!nifInput) return;
+
+    nifInput.addEventListener('blur', async function() {
+        const nif = this.value.trim();
+        if (!nif) { nifWarning.classList.add('d-none'); return; }
+        try {
+            const resp = await fetch('/clientes/check_nif.php?nif=' + encodeURIComponent(nif) + '&exclude_id=<?= (int)$id ?>');
+            const data = await resp.json();
+            if (data.exists && data.cliente) {
+                nifWarningNombre.textContent = data.cliente.nombre;
+                nifWarningLink.href = '/clientes/editar.php?id=' + encodeURIComponent(data.cliente.id);
+                nifWarning.classList.remove('d-none');
+            } else {
+                nifWarning.classList.add('d-none');
+            }
+        } catch (e) {
+            // Silenciar errores de red
+        }
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

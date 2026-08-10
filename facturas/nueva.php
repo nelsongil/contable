@@ -494,7 +494,8 @@ document.addEventListener('DOMContentLoaded', function() {
             provincia: document.getElementById('mc_provincia').value,
             telefono:  document.getElementById('mc_telefono').value,
             email:     document.getElementById('mc_email').value,
-            notas:     ''
+            notas:     '',
+            csrf_token: document.querySelector('#formFactura input[name="csrf_token"]').value
         });
         try {
             const resp = await fetch('/clientes/nuevo.php?inline=1', { method: 'POST', body });
@@ -528,6 +529,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     document.getElementById('modalNuevoCliente').addEventListener('hidden.bs.modal', function() {
         document.getElementById('modalClienteError').classList.add('d-none');
+        document.getElementById('mc_nifWarning').classList.add('d-none');
         ['mc_nombre','mc_nif','mc_direccion','mc_ciudad','mc_cp','mc_provincia','mc_telefono','mc_email'].forEach(id => {
             document.getElementById(id).value = '';
         });
@@ -535,6 +537,29 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('modalNuevoCliente').addEventListener('shown.bs.modal', function() {
         document.getElementById('mc_nombre').focus();
     });
+
+    // ── Comprobación de NIF duplicado en el modal ─────────────
+    const mcNif = document.getElementById('mc_nif');
+    const mcNifWarning = document.getElementById('mc_nifWarning');
+    if (mcNif) {
+        mcNif.addEventListener('blur', async function() {
+            const nif = this.value.trim();
+            if (!nif) { mcNifWarning.classList.add('d-none'); return; }
+            try {
+                const resp = await fetch('/clientes/check_nif.php?nif=' + encodeURIComponent(nif));
+                const data = await resp.json();
+                if (data.exists && data.cliente) {
+                    document.getElementById('mc_nifWarningNombre').textContent = data.cliente.nombre;
+                    document.getElementById('mc_nifWarningLink').href = '/clientes/editar.php?id=' + encodeURIComponent(data.cliente.id);
+                    mcNifWarning.classList.remove('d-none');
+                } else {
+                    mcNifWarning.classList.add('d-none');
+                }
+            } catch (e) {
+                // Silenciar errores de red
+            }
+        });
+    }
 
     // ── Cálculo automático de totales ─────────────────────
     function fmt(v) {
@@ -783,6 +808,13 @@ document.addEventListener('DOMContentLoaded', function() {
           <div class="col-md-4">
             <label class="form-label">NIF / CIF / DNI</label>
             <input type="text" id="mc_nif" class="form-control">
+          </div>
+          <div class="col-12">
+            <div id="mc_nifWarning" class="alert alert-warning d-none py-2" style="font-size:.875rem">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              Ya existe un cliente con este NIF: <strong id="mc_nifWarningNombre"></strong>.
+              <a href="/clientes/editar.php" id="mc_nifWarningLink" target="_blank">Ver cliente</a>
+            </div>
           </div>
           <div class="col-12">
             <label class="form-label">Dirección</label>
